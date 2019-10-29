@@ -13,8 +13,9 @@ fallback token code OP, but the parser needs the actual token code.
 """
 
 # Python imports
-import collections
+import os
 import pickle
+import tempfile
 
 # Local imports
 from . import token
@@ -84,23 +85,16 @@ class Grammar(object):
         self.tokens = {}
         self.symbol2label = {}
         self.start = 256
+        # Python 3.7+ parses async as a keyword, not an identifier
+        self.async_keywords = False
 
     def dump(self, filename):
-        """Dump the grammar tables to a pickle file.
-
-        dump() recursively changes all dict to OrderedDict, so the pickled file
-        is not exactly the same as what was passed in to dump(). load() uses the
-        pickled file to create the tables, but  only changes OrderedDict to dict
-        at the top level; it does not recursively change OrderedDict to dict.
-        So, the loaded tables are different from the original tables that were
-        passed to load() in that some of the OrderedDict (from the pickled file)
-        are not changed back to dict. For parsing, this has no effect on
-        performance because OrderedDict uses dict's __getitem__ with nothing in
-        between.
-        """
-        with open(filename, "wb") as f:
-            d = _make_deterministic(self.__dict__)
-            pickle.dump(d, f, 2)
+        """Dump the grammar tables to a pickle file."""
+        with tempfile.NamedTemporaryFile(
+            dir=os.path.dirname(filename), delete=False
+        ) as f:
+            pickle.dump(self.__dict__, f, pickle.HIGHEST_PROTOCOL)
+        os.replace(f.name, filename)
 
     def load(self, filename):
         """Load the grammar tables from a pickle file."""
@@ -117,17 +111,25 @@ class Grammar(object):
         Copy the grammar.
         """
         new = self.__class__()
-        for dict_attr in ("symbol2number", "number2symbol", "dfas", "keywords",
-                          "tokens", "symbol2label"):
+        for dict_attr in (
+            "symbol2number",
+            "number2symbol",
+            "dfas",
+            "keywords",
+            "tokens",
+            "symbol2label",
+        ):
             setattr(new, dict_attr, getattr(self, dict_attr).copy())
         new.labels = self.labels[:]
         new.states = self.states[:]
         new.start = self.start
+        new.async_keywords = self.async_keywords
         return new
 
     def report(self):
         """Dump the grammar tables to standard output, for debugging."""
         from pprint import pprint
+
         print("s2n")
         pprint(self.symbol2number)
         print("n2s")
@@ -139,17 +141,6 @@ class Grammar(object):
         print("labels")
         pprint(self.labels)
         print("start", self.start)
-
-
-def _make_deterministic(top):
-    if isinstance(top, dict):
-        return collections.OrderedDict(
-            sorted(((k, _make_deterministic(v)) for k, v in top.items())))
-    if isinstance(top, list):
-        return [_make_deterministic(e) for e in top]
-    if isinstance(top, tuple):
-        return tuple(_make_deterministic(e) for e in top)
-    return top
 
 
 # Map from operator to number (since tokenize doesn't do this)
@@ -202,6 +193,7 @@ opmap_raw = """
 // DOUBLESLASH
 //= DOUBLESLASHEQUAL
 -> RARROW
+:= COLONEQUAL
 """
 
 opmap = {}

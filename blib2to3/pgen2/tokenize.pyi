@@ -1,8 +1,9 @@
 # Stubs for lib2to3.pgen2.tokenize (Python 3.6)
 # NOTE: Only elements from __all__ are present.
 
-from typing import Callable, Iterable, Iterator, List, Text, Tuple
+from typing import Callable, Iterable, Iterator, List, Optional, Text, Tuple
 from blib2to3.pgen2.token import *  # noqa
+from blib2to3.pygram import Grammar
 
 
 _Coord = Tuple[int, int]
@@ -26,5 +27,6 @@ class Untokenizer:
 
 def untokenize(iterable: Iterable[_TokenInfo]) -> Text: ...
 def generate_tokens(
-    readline: Callable[[], Text]
+    readline: Callable[[], Text],
+    grammar: Optional[Grammar] = ...
 ) -> Iterator[_TokenInfo]: ...

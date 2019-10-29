@@ -1,6 +1,7 @@
 # Stubs for lib2to3.pygram (Python 3.6)
 
-from typing import Any
+import os
+from typing import Any, Union
 from blib2to3.pgen2.grammar import Grammar
 
 class Symbols:
@@ -56,6 +57,7 @@ class python_symbols(Symbols):
     import_stmt: int
     lambdef: int
     listmaker: int
+    namedexpr_test: int
     not_test: int
     old_comp_for: int
     old_comp_if: int
@@ -117,5 +119,8 @@ class pattern_symbols(Symbols):
 python_grammar: Grammar
 python_grammar_no_print_statement: Grammar
 python_grammar_no_print_statement_no_exec_statement: Grammar
+python_grammar_no_print_statement_no_exec_statement_async_keywords: Grammar
 python_grammar_no_exec_statement: Grammar
 pattern_grammar: Grammar
+
+def initialize(cache_dir: Union[str, os.PathLike, None]) -> None: ...

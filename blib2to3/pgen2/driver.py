@@ -28,11 +28,10 @@ from . import grammar, parse, token, tokenize, pgen
 
 
 class Driver(object):
-
     def __init__(self, grammar, convert=None, logger=None):
         self.grammar = grammar
         if logger is None:
-            logger = logging.getLogger()
+            logger = logging.getLogger(__name__)
         self.logger = logger
         self.convert = convert
 
@@ -43,6 +42,7 @@ class Driver(object):
         p.setup()
         lineno = 1
         column = 0
+        indent_columns = []
         type = value = start = end = line_text = None
         prefix = ""
         for quintuple in tokens:
@@ -67,11 +67,17 @@ class Driver(object):
             if type == token.OP:
                 type = grammar.opmap[value]
             if debug:
-                self.logger.debug("%s %r (prefix=%r)",
-                                  token.tok_name[type], value, prefix)
-            if type in {token.INDENT, token.DEDENT}:
-                _prefix = prefix
+                self.logger.debug(
+                    "%s %r (prefix=%r)", token.tok_name[type], value, prefix
+                )
+            if type == token.INDENT:
+                indent_columns.append(len(value))
+                _prefix = prefix + value
                 prefix = ""
+                value = ""
+            elif type == token.DEDENT:
+                _indent_col = indent_columns.pop()
+                prefix, _prefix = self._partially_consume_prefix(prefix, _indent_col)
             if p.addtoken(type, value, (prefix, start)):
                 if debug:
                     self.logger.debug("Stop.")
@@ -85,13 +91,12 @@ class Driver(object):
                 column = 0
         else:
             # We never broke out -- EOF is too soon (how can this happen???)
-            raise parse.ParseError("incomplete input",
-                                   type, value, (prefix, start))
+            raise parse.ParseError("incomplete input", type, value, (prefix, start))
         return p.rootnode
 
     def parse_stream_raw(self, stream, debug=False):
         """Parse a stream and return the syntax tree."""
-        tokens = tokenize.generate_tokens(stream.readline)
+        tokens = tokenize.generate_tokens(stream.readline, grammar=self.grammar)
         return self.parse_tokens(tokens, debug)
 
     def parse_stream(self, stream, debug=False):
@@ -105,22 +110,54 @@ class Driver(object):
 
     def parse_string(self, text, debug=False):
         """Parse a string and return the syntax tree."""
-        tokens = tokenize.generate_tokens(io.StringIO(text).readline)
+        tokens = tokenize.generate_tokens(
+            io.StringIO(text).readline, grammar=self.grammar
+        )
         return self.parse_tokens(tokens, debug)
 
+    def _partially_consume_prefix(self, prefix, column):
+        lines = []
+        current_line = ""
+        current_column = 0
+        wait_for_nl = False
+        for char in prefix:
+            current_line += char
+            if wait_for_nl:
+                if char == "\n":
+                    if current_line.strip() and current_column < column:
+                        res = "".join(lines)
+                        return res, prefix[len(res) :]
 
-def _generate_pickle_name(gt):
+                    lines.append(current_line)
+                    current_line = ""
+                    current_column = 0
+                    wait_for_nl = False
+            elif char in " \t":
+                current_column += 1
+            elif char == "\n":
+                # unexpected empty line
+                current_column = 0
+            else:
+                # indent is finished
+                wait_for_nl = True
+        return "".join(lines), current_line
+
+
+def _generate_pickle_name(gt, cache_dir=None):
     head, tail = os.path.splitext(gt)
     if tail == ".txt":
         tail = ""
-    return head + tail + ".".join(map(str, sys.version_info)) + ".pickle"
+    name = head + tail + ".".join(map(str, sys.version_info)) + ".pickle"
+    if cache_dir:
+        return os.path.join(cache_dir, os.path.basename(name))
+    else:
+        return name
 
 
-def load_grammar(gt="Grammar.txt", gp=None,
-                 save=True, force=False, logger=None):
+def load_grammar(gt="Grammar.txt", gp=None, save=True, force=False, logger=None):
     """Load the grammar (maybe from a pickle)."""
     if logger is None:
-        logger = logging.getLogger()
+        logger = logging.getLogger(__name__)
     gp = _generate_pickle_name(gt) if gp is None else gp
     if force or not _newer(gp, gt):
         logger.info("Generating grammar tables from %s", gt)
@@ -146,7 +183,7 @@ def _newer(a, b):
     return os.path.getmtime(a) >= os.path.getmtime(b)
 
 
-def load_packaged_grammar(package, grammar_source):
+def load_packaged_grammar(package, grammar_source, cache_dir=None):
     """Normally, loads a pickled grammar by doing
         pkgutil.get_data(package, pickled_grammar)
     where *pickled_grammar* is computed from *grammar_source* by adding the
@@ -158,8 +195,9 @@ def load_packaged_grammar(package, grammar_source):
 
     """
     if os.path.isfile(grammar_source):
-        return load_grammar(grammar_source)
-    pickled_name = _generate_pickle_name(os.path.basename(grammar_source))
+        gp = _generate_pickle_name(grammar_source, cache_dir) if cache_dir else None
+        return load_grammar(grammar_source, gp=gp)
+    pickled_name = _generate_pickle_name(os.path.basename(grammar_source), cache_dir)
     data = pkgutil.get_data(package, pickled_name)
     g = grammar.Grammar()
     g.loads(data)
@@ -173,11 +211,11 @@ def main(*args):
     """
     if not args:
         args = sys.argv[1:]
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout,
-                        format='%(message)s')
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(message)s")
     for gt in args:
         load_grammar(gt, save=True, force=True)
     return True
+
 
 if __name__ == "__main__":
     sys.exit(int(not main()))

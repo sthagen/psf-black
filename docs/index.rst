@@ -4,7 +4,7 @@
 The uncompromising code formatter
 =================================
 
-By using *Black*, you agree to cease control over minutiae of
+By using *Black*, you agree to cede control over minutiae of
 hand-formatting. In return, *Black* gives you speed, determinism, and
 freedom from `pycodestyle` nagging about formatting. You will save time
 and mental energy for more important matters.
@@ -14,9 +14,11 @@ possible. Blackened code looks the same regardless of the project
 you're reading. Formatting becomes transparent after a while and you
 can focus on the content instead.
 
+Try it out now using the `Black Playground <https://black.now.sh>`_.
+
 .. note::
 
-   `Black is an early pre-release <installation_and_usage.html#note-this-is-an-early-pre-release>`_.
+   `Black is beta <installation_and_usage.html#note-this-is-a-beta-product>`_.
 
 
 Testimonials
@@ -26,7 +28,7 @@ Testimonials
 
    *Black is opinionated so you don't have to be.*
 
-**Hynek Schlawack**, creator of `attrs <http://www.attrs.org/>`_, core
+**Hynek Schlawack**, creator of `attrs <https://www.attrs.org/>`_, core
 developer of Twisted and CPython:
 
    *An auto-formatter that doesn't suck is all I want for Xmas!*
@@ -48,8 +50,13 @@ Contents
 
    installation_and_usage
    the_black_code_style
+   pyproject_toml
    editor_integration
+   blackd
+   version_control_integration
+   ignoring_unmodified_files
    contributing
+   show_your_style
    change_log
    reference/reference_summary
    authors
