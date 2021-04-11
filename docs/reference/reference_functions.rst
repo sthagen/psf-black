@@ -26,8 +26,6 @@ Assertions and checks
 
 .. autofunction:: black.is_one_tuple
 
-.. autofunction:: black.is_python36
-
 .. autofunction:: black.is_split_after_delimiter
 
 .. autofunction:: black.is_split_before_delimiter
@@ -63,7 +61,7 @@ File operations
 
 .. autofunction:: black.find_project_root
 
-.. autofunction:: black.gen_python_files_in_dir
+.. autofunction:: black.gen_python_files
 
 .. autofunction:: black.read_pyproject_toml
 
@@ -91,7 +89,7 @@ Split functions
 
 .. autofunction:: black.standalone_comment_split
 
-.. autofunction:: black.split_line
+.. autofunction:: black.transform_line
 
 Caching
 -------
@@ -127,8 +125,6 @@ Utilities
 
 .. autofunction:: black.format_float_or_int_string
 
-.. autofunction:: black.format_int_string
-
 .. autofunction:: black.ensure_visible
 
 .. autofunction:: black.enumerate_reversed
@@ -138,6 +134,12 @@ Utilities
 .. autofunction:: black.generate_comments
 
 .. autofunction:: black.generate_ignored_nodes
+
+.. autofunction:: black.is_fmt_on
+
+.. autofunction:: black.contains_fmt_on_at_column
+
+.. autofunction:: black.first_leaf_column
 
 .. autofunction:: black.generate_trailers_to_omit
 
@@ -169,7 +171,7 @@ Utilities
 
 .. autofunction:: black.re_compile_maybe_verbose
 
-.. autofunction:: black.should_explode
+.. autofunction:: black.should_split_line
 
 .. autofunction:: black.shutdown
 
