@@ -4,6 +4,31 @@
 
 #### _Black_
 
+- Fix crash on docstrings ending with "\ ". (#2142)
+
+- Fix crash when atypical whitespace is cleaned out of dostrings (#2120)
+
+- Reflect the `--skip-magic-trailing-comma` and `--experimental-string-processing` flags
+  in the name of the cache file. Without this fix, changes in these flags would not take
+  effect if the cache had already been populated. (#2131)
+
+- Don't remove necessary parentheses from assignment expression containing assert /
+  return statements. (#2143)
+
+### 21.4b0
+
+#### _Black_
+
+- Fixed a rare but annoying formatting instability created by the combination of
+  optional trailing commas inserted by `Black` and optional parentheses looking at
+  pre-existing "magic" trailing commas. This fixes issue #1629 and all of its many many
+  duplicates. (#2126)
+
+- `Black` now processes one-line docstrings by stripping leading and trailing spaces,
+  and adding a padding space when needed to break up """". (#1740)
+
+- `Black` now cleans up leading non-breaking spaces in comments (#2092)
+
 - `Black` now respects `--skip-string-normalization` when normalizing multiline
   docstring quotes (#1637)
 
@@ -27,8 +52,6 @@
 - Added parsing support for unparenthesized tuples and yield expressions in annotated
   assignments (#1835)
 
-- use lowercase hex strings (#1692)
-
 - added `--extend-exclude` argument (PR #2005)
 
 - speed up caching by avoiding pathlib (#1950)
@@ -46,6 +69,9 @@
   `python3 -m pip install black[python2]` to maintain support.
 
 - Exclude `venv` directory by default (#1683)
+
+- Fixed "Black produced code that is not equivalent to the source" when formatting
+  Python 2 docstrings (#2037)
 
 #### _Packaging_
 

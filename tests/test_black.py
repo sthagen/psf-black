@@ -255,6 +255,24 @@ class BlackTestCase(BlackBaseTestCase):
         black.assert_stable(source, actual, DEFAULT_MODE)
 
     @patch("black.dump_to_file", dump_to_stderr)
+    def test_trailing_comma_optional_parens_stability1_pass2(self) -> None:
+        source, _expected = read_data("trailing_comma_optional_parens1")
+        actual = fs(fs(source))  # this is what `format_file_contents` does with --safe
+        black.assert_stable(source, actual, DEFAULT_MODE)
+
+    @patch("black.dump_to_file", dump_to_stderr)
+    def test_trailing_comma_optional_parens_stability2_pass2(self) -> None:
+        source, _expected = read_data("trailing_comma_optional_parens2")
+        actual = fs(fs(source))  # this is what `format_file_contents` does with --safe
+        black.assert_stable(source, actual, DEFAULT_MODE)
+
+    @patch("black.dump_to_file", dump_to_stderr)
+    def test_trailing_comma_optional_parens_stability3_pass2(self) -> None:
+        source, _expected = read_data("trailing_comma_optional_parens3")
+        actual = fs(fs(source))  # this is what `format_file_contents` does with --safe
+        black.assert_stable(source, actual, DEFAULT_MODE)
+
+    @patch("black.dump_to_file", dump_to_stderr)
     def test_pep_572(self) -> None:
         source, expected = read_data("pep_572")
         actual = fs(source)
@@ -361,11 +379,12 @@ class BlackTestCase(BlackBaseTestCase):
     @patch("black.dump_to_file", dump_to_stderr)
     def test_string_quotes(self) -> None:
         source, expected = read_data("string_quotes")
-        actual = fs(source)
+        mode = black.Mode(experimental_string_processing=True)
+        actual = fs(source, mode=mode)
         self.assertFormatEqual(expected, actual)
         black.assert_equivalent(source, actual)
-        black.assert_stable(source, actual, DEFAULT_MODE)
-        mode = replace(DEFAULT_MODE, string_normalization=False)
+        black.assert_stable(source, actual, mode)
+        mode = replace(mode, string_normalization=False)
         not_normalized = fs(source, mode=mode)
         self.assertFormatEqual(source.replace("\\\n", ""), not_normalized)
         black.assert_equivalent(source, not_normalized)
@@ -1917,6 +1936,26 @@ class BlackTestCase(BlackBaseTestCase):
         actual = result.output
         actual = diff_header.sub(DETERMINISTIC_HEADER, actual)
         self.assertEqual(actual, expected)
+
+    def test_docstring_reformat_for_py27(self) -> None:
+        """
+        Check that stripping trailing whitespace from Python 2 docstrings
+        doesn't trigger a "not equivalent to source" error
+        """
+        source = (
+            b'def foo():\r\n    """Testing\r\n    Testing """\r\n    print "Foo"\r\n'
+        )
+        expected = 'def foo():\n    """Testing\n    Testing"""\n    print "Foo"\n'
+
+        result = CliRunner().invoke(
+            black.main,
+            ["-", "-q", "--target-version=py27"],
+            input=BytesIO(source),
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        actual = result.output
+        self.assertFormatEqual(actual, expected)
 
 
 with open(black.__file__, "r", encoding="utf-8") as _bf:
