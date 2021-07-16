@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # coding=utf8
 
 import asyncio
@@ -9,11 +7,19 @@ from datetime import datetime
 from pathlib import Path
 from shutil import rmtree, which
 from tempfile import gettempdir
-from typing import Any, Union
+from typing import Any, Union, Optional
 
 import click
 
 from black_primer import lib
+
+# If our environment has uvloop installed lets use it
+try:
+    import uvloop
+
+    uvloop.install()
+except ImportError:
+    pass
 
 
 DEFAULT_CONFIG = Path(__file__).parent / "primer.json"
@@ -23,8 +29,8 @@ LOG = logging.getLogger(__name__)
 
 
 def _handle_debug(
-    ctx: click.core.Context,
-    param: Union[click.core.Option, click.core.Parameter],
+    ctx: Optional[click.core.Context],
+    param: Optional[Union[click.core.Option, click.core.Parameter]],
     debug: Union[bool, int, str],
 ) -> Union[bool, int, str]:
     """Turn on debugging if asked otherwise INFO default"""
@@ -41,6 +47,7 @@ async def async_main(
     debug: bool,
     keep: bool,
     long_checkouts: bool,
+    no_diff: bool,
     rebase: bool,
     workdir: str,
     workers: int,
@@ -56,7 +63,13 @@ async def async_main(
 
     try:
         ret_val = await lib.process_queue(
-            config, work_path, workers, keep, long_checkouts, rebase
+            config,
+            work_path,
+            workers,
+            keep,
+            long_checkouts,
+            rebase,
+            no_diff,
         )
         return int(ret_val)
     finally:
@@ -96,6 +109,12 @@ async def async_main(
     is_flag=True,
     show_default=True,
     help="Pull big projects to test",
+)
+@click.option(
+    "--no-diff",
+    is_flag=True,
+    show_default=True,
+    help="Disable showing source file changes in black output",
 )
 @click.option(
     "-R",

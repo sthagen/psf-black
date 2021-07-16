@@ -6,7 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import replace
 import inspect
-from io import BytesIO, TextIOWrapper
+import io
+from io import BytesIO
 import os
 from pathlib import Path
 from platform import system
@@ -16,14 +17,13 @@ from tempfile import TemporaryDirectory
 import types
 from typing import (
     Any,
-    BinaryIO,
     Callable,
     Dict,
-    Generator,
     List,
     Iterator,
     TypeVar,
 )
+import pytest
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -33,6 +33,11 @@ from click.testing import CliRunner
 
 import black
 from black import Feature, TargetVersion
+from black.cache import get_cache_file
+from black.debug import DebugVisitor
+from black.output import diff, color_diff
+from black.report import Report
+import black.files
 
 from pathspec import PathSpec
 
@@ -47,7 +52,6 @@ from tests.util import (
     ff,
     dump_to_stderr,
 )
-from .test_primer import PrimerCLITests  # noqa: F401
 
 
 THIS_FILE = Path(__file__)
@@ -61,6 +65,9 @@ PY36_ARGS = [f"--target-version={version.name.lower()}" for version in PY36_VERS
 T = TypeVar("T")
 R = TypeVar("R")
 
+# Match the time output in a diff, but nothing else
+DIFF_TIME = re.compile(r"\t[\d-:+\. ]+")
+
 
 @contextmanager
 def cache_dir(exists: bool = True) -> Iterator[Path]:
@@ -68,7 +75,7 @@ def cache_dir(exists: bool = True) -> Iterator[Path]:
         cache_dir = Path(workspace)
         if not exists:
             cache_dir = cache_dir / "new"
-        with patch("black.CACHE_DIR", cache_dir):
+        with patch("black.cache.CACHE_DIR", cache_dir):
             yield cache_dir
 
 
@@ -99,28 +106,10 @@ class FakeParameter(click.Parameter):
 
 
 class BlackRunner(CliRunner):
-    """Modify CliRunner so that stderr is not merged with stdout.
-
-    This is a hack that can be removed once we depend on Click 7.x"""
+    """Make sure STDOUT and STDERR are kept separate when testing Black via its CLI."""
 
     def __init__(self) -> None:
-        self.stderrbuf = BytesIO()
-        self.stdoutbuf = BytesIO()
-        self.stdout_bytes = b""
-        self.stderr_bytes = b""
-        super().__init__()
-
-    @contextmanager
-    def isolation(self, *args: Any, **kwargs: Any) -> Generator[BinaryIO, None, None]:
-        with super().isolation(*args, **kwargs) as output:
-            try:
-                hold_stderr = sys.stderr
-                sys.stderr = TextIOWrapper(self.stderrbuf, encoding=self.charset)
-                yield output
-            finally:
-                self.stdout_bytes = sys.stdout.buffer.getvalue()  # type: ignore
-                self.stderr_bytes = sys.stderr.buffer.getvalue()  # type: ignore
-                sys.stderr = hold_stderr
+        super().__init__(mix_stderr=False)
 
 
 class BlackTestCase(BlackBaseTestCase):
@@ -131,13 +120,15 @@ class BlackTestCase(BlackBaseTestCase):
         if ignore_config:
             args = ["--verbose", "--config", str(THIS_DIR / "empty.toml"), *args]
         result = runner.invoke(black.main, args)
+        assert result.stdout_bytes is not None
+        assert result.stderr_bytes is not None
         self.assertEqual(
             result.exit_code,
             exit_code,
             msg=(
                 f"Failed with args: {args}\n"
-                f"stdout: {runner.stdout_bytes.decode()!r}\n"
-                f"stderr: {runner.stderr_bytes.decode()!r}\n"
+                f"stdout: {result.stdout_bytes.decode()!r}\n"
+                f"stderr: {result.stderr_bytes.decode()!r}\n"
                 f"exception: {result.exception}"
             ),
         )
@@ -170,8 +161,9 @@ class BlackTestCase(BlackBaseTestCase):
         )
         self.assertEqual(result.exit_code, 0)
         self.assertFormatEqual(expected, result.output)
-        black.assert_equivalent(source, result.output)
-        black.assert_stable(source, result.output, DEFAULT_MODE)
+        if source != result.output:
+            black.assert_equivalent(source, result.output)
+            black.assert_stable(source, result.output, DEFAULT_MODE)
 
     def test_piping_diff(self) -> None:
         diff_header = re.compile(
@@ -289,6 +281,14 @@ class BlackTestCase(BlackBaseTestCase):
         black.assert_stable(source, actual, DEFAULT_MODE)
         if sys.version_info >= (3, 8):
             black.assert_equivalent(source, actual)
+
+    @patch("black.dump_to_file", dump_to_stderr)
+    def test_pep_572_do_not_remove_parens(self) -> None:
+        source, expected = read_data("pep_572_do_not_remove_parens")
+        # the AST safety checks will fail, but that's expected, just make sure no
+        # parentheses are touched
+        actual = black.format_str(source, mode=DEFAULT_MODE)
+        self.assertFormatEqual(expected, actual)
 
     def test_pep_572_version_detection(self) -> None:
         source, _ = read_data("pep_572")
@@ -451,6 +451,7 @@ class BlackTestCase(BlackBaseTestCase):
             )
             self.assertEqual(expected, actual, msg)
 
+    @pytest.mark.python2
     @patch("black.dump_to_file", dump_to_stderr)
     def test_python2_print_function(self) -> None:
         source, expected = read_data("python2_print_function")
@@ -541,7 +542,7 @@ class BlackTestCase(BlackBaseTestCase):
         self.assertFormatEqual(contents_spc, fs(contents_tab))
 
     def test_report_verbose(self) -> None:
-        report = black.Report(verbose=True)
+        report = Report(verbose=True)
         out_lines = []
         err_lines = []
 
@@ -551,7 +552,7 @@ class BlackTestCase(BlackBaseTestCase):
         def err(msg: str, **kwargs: Any) -> None:
             err_lines.append(msg)
 
-        with patch("black.out", out), patch("black.err", err):
+        with patch("black.output._out", out), patch("black.output._err", err):
             report.done(Path("f1"), black.Changed.NO)
             self.assertEqual(len(out_lines), 1)
             self.assertEqual(len(err_lines), 0)
@@ -643,7 +644,7 @@ class BlackTestCase(BlackBaseTestCase):
             )
 
     def test_report_quiet(self) -> None:
-        report = black.Report(quiet=True)
+        report = Report(quiet=True)
         out_lines = []
         err_lines = []
 
@@ -653,7 +654,7 @@ class BlackTestCase(BlackBaseTestCase):
         def err(msg: str, **kwargs: Any) -> None:
             err_lines.append(msg)
 
-        with patch("black.out", out), patch("black.err", err):
+        with patch("black.output._out", out), patch("black.output._err", err):
             report.done(Path("f1"), black.Changed.NO)
             self.assertEqual(len(out_lines), 0)
             self.assertEqual(len(err_lines), 0)
@@ -747,7 +748,7 @@ class BlackTestCase(BlackBaseTestCase):
         def err(msg: str, **kwargs: Any) -> None:
             err_lines.append(msg)
 
-        with patch("black.out", out), patch("black.err", err):
+        with patch("black.output._out", out), patch("black.output._err", err):
             report.done(Path("f1"), black.Changed.NO)
             self.assertEqual(len(out_lines), 0)
             self.assertEqual(len(err_lines), 0)
@@ -964,8 +965,8 @@ class BlackTestCase(BlackBaseTestCase):
         def err(msg: str, **kwargs: Any) -> None:
             err_lines.append(msg)
 
-        with patch("black.out", out), patch("black.err", err):
-            black.DebugVisitor.show(source)
+        with patch("black.debug.out", out):
+            DebugVisitor.show(source)
         actual = "\n".join(out_lines) + "\n"
         log_name = ""
         if expected != actual:
@@ -1013,7 +1014,7 @@ class BlackTestCase(BlackBaseTestCase):
         def err(msg: str, **kwargs: Any) -> None:
             err_lines.append(msg)
 
-        with patch("black.out", out), patch("black.err", err):
+        with patch("black.output._out", out), patch("black.output._err", err):
             with self.assertRaises(AssertionError):
                 self.assertFormatEqual("j = [1, 2, 3]", "j = [1, 2, 3,]")
 
@@ -1025,7 +1026,7 @@ class BlackTestCase(BlackBaseTestCase):
     def test_cache_broken_file(self) -> None:
         mode = DEFAULT_MODE
         with cache_dir() as workspace:
-            cache_file = black.get_cache_file(mode)
+            cache_file = get_cache_file(mode)
             with cache_file.open("w") as fobj:
                 fobj.write("this is not a pickle")
             self.assertEqual(black.read_cache(mode), {})
@@ -1079,7 +1080,7 @@ class BlackTestCase(BlackBaseTestCase):
                 "black.write_cache"
             ) as write_cache:
                 self.invokeBlack([str(src), "--diff"])
-                cache_file = black.get_cache_file(mode)
+                cache_file = get_cache_file(mode)
                 self.assertFalse(cache_file.exists())
                 write_cache.assert_not_called()
                 read_cache.assert_not_called()
@@ -1094,7 +1095,7 @@ class BlackTestCase(BlackBaseTestCase):
                 "black.write_cache"
             ) as write_cache:
                 self.invokeBlack([str(src), "--diff", "--color"])
-                cache_file = black.get_cache_file(mode)
+                cache_file = get_cache_file(mode)
                 self.assertFalse(cache_file.exists())
                 write_cache.assert_not_called()
                 read_cache.assert_not_called()
@@ -1132,7 +1133,7 @@ class BlackTestCase(BlackBaseTestCase):
                 black.main, ["-"], input=BytesIO(b"print('hello')")
             )
             self.assertEqual(result.exit_code, 0)
-            cache_file = black.get_cache_file(mode)
+            cache_file = get_cache_file(mode)
             self.assertFalse(cache_file.exists())
 
     def test_read_cache_no_cachefile(self) -> None:
@@ -1381,6 +1382,32 @@ class BlackTestCase(BlackBaseTestCase):
         )
         self.assertEqual(sorted(expected), sorted(sources))
 
+    def test_gitignore_used_as_default(self) -> None:
+        path = Path(THIS_DIR / "data" / "include_exclude_tests")
+        include = re.compile(r"\.pyi?$")
+        extend_exclude = re.compile(r"/exclude/")
+        src = str(path / "b/")
+        report = black.Report()
+        expected: List[Path] = [
+            path / "b/.definitely_exclude/a.py",
+            path / "b/.definitely_exclude/a.pyi",
+        ]
+        sources = list(
+            black.get_sources(
+                ctx=FakeContext(),
+                src=(src,),
+                quiet=True,
+                verbose=False,
+                include=include,
+                exclude=None,
+                extend_exclude=extend_exclude,
+                force_exclude=None,
+                report=report,
+                stdin_filename=None,
+            )
+        )
+        self.assertEqual(sorted(expected), sorted(sources))
+
     @patch("black.find_project_root", lambda *args: THIS_DIR.resolve())
     def test_exclude_for_issue_1572(self) -> None:
         # Exclude shouldn't touch files that were explicitly given to Black through the
@@ -1457,7 +1484,7 @@ class BlackTestCase(BlackBaseTestCase):
 
     @patch("black.find_project_root", lambda *args: THIS_DIR.resolve())
     def test_get_sources_with_stdin_filename_and_exclude(self) -> None:
-        # Exclude shouldn't exclude stdin_filename since it is mimicing the
+        # Exclude shouldn't exclude stdin_filename since it is mimicking the
         # file being passed directly. This is the same as
         # test_exclude_for_issue_1572
         path = THIS_DIR / "data" / "include_exclude_tests"
@@ -1570,8 +1597,34 @@ class BlackTestCase(BlackBaseTestCase):
                 mode=DEFAULT_MODE,
                 report=report,
             )
-            fsts.assert_called_once()
-            # __BLACK_STDIN_FILENAME__ should have been striped
+            fsts.assert_called_once_with(
+                fast=True, write_back=black.WriteBack.YES, mode=DEFAULT_MODE
+            )
+            # __BLACK_STDIN_FILENAME__ should have been stripped
+            report.done.assert_called_with(expected, black.Changed.YES)
+
+    def test_reformat_one_with_stdin_filename_pyi(self) -> None:
+        with patch(
+            "black.format_stdin_to_stdout",
+            return_value=lambda *args, **kwargs: black.Changed.YES,
+        ) as fsts:
+            report = MagicMock()
+            p = "foo.pyi"
+            path = Path(f"__BLACK_STDIN_FILENAME__{p}")
+            expected = Path(p)
+            black.reformat_one(
+                path,
+                fast=True,
+                write_back=black.WriteBack.YES,
+                mode=DEFAULT_MODE,
+                report=report,
+            )
+            fsts.assert_called_once_with(
+                fast=True,
+                write_back=black.WriteBack.YES,
+                mode=replace(DEFAULT_MODE, is_pyi=True),
+            )
+            # __BLACK_STDIN_FILENAME__ should have been stripped
             report.done.assert_called_with(expected, black.Changed.YES)
 
     def test_reformat_one_with_stdin_and_existing_path(self) -> None:
@@ -1595,8 +1648,22 @@ class BlackTestCase(BlackBaseTestCase):
                 report=report,
             )
             fsts.assert_called_once()
-            # __BLACK_STDIN_FILENAME__ should have been striped
+            # __BLACK_STDIN_FILENAME__ should have been stripped
             report.done.assert_called_with(expected, black.Changed.YES)
+
+    def test_reformat_one_with_stdin_empty(self) -> None:
+        output = io.StringIO()
+        with patch("io.TextIOWrapper", lambda *args, **kwargs: output):
+            try:
+                black.format_stdin_to_stdout(
+                    fast=True,
+                    content="",
+                    write_back=black.WriteBack.YES,
+                    mode=DEFAULT_MODE,
+                )
+            except io.UnsupportedOperation:
+                pass  # StringIO does not support detach
+            assert output.getvalue() == ""
 
     def test_gitignore_exclude(self) -> None:
         path = THIS_DIR / "data" / "include_exclude_tests"
@@ -1626,6 +1693,33 @@ class BlackTestCase(BlackBaseTestCase):
         )
         self.assertEqual(sorted(expected), sorted(sources))
 
+    def test_nested_gitignore(self) -> None:
+        path = Path(THIS_DIR / "data" / "nested_gitignore_tests")
+        include = re.compile(r"\.pyi?$")
+        exclude = re.compile(r"")
+        root_gitignore = black.files.get_gitignore(path)
+        report = black.Report()
+        expected: List[Path] = [
+            Path(path / "x.py"),
+            Path(path / "root/b.py"),
+            Path(path / "root/c.py"),
+            Path(path / "root/child/c.py"),
+        ]
+        this_abs = THIS_DIR.resolve()
+        sources = list(
+            black.gen_python_files(
+                path.iterdir(),
+                this_abs,
+                include,
+                exclude,
+                None,
+                None,
+                report,
+                root_gitignore,
+            )
+        )
+        self.assertEqual(sorted(expected), sorted(sources))
+
     def test_empty_include(self) -> None:
         path = THIS_DIR / "data" / "include_exclude_tests"
         report = black.Report()
@@ -1642,6 +1736,8 @@ class BlackTestCase(BlackBaseTestCase):
             Path(path / "b/.definitely_exclude/a.pie"),
             Path(path / "b/.definitely_exclude/a.py"),
             Path(path / "b/.definitely_exclude/a.pyi"),
+            Path(path / ".gitignore"),
+            Path(path / "pyproject.toml"),
         ]
         this_abs = THIS_DIR.resolve()
         sources.extend(
@@ -1686,6 +1782,16 @@ class BlackTestCase(BlackBaseTestCase):
         for option in ["--include", "--exclude", "--extend-exclude", "--force-exclude"]:
             self.invokeBlack(["-", option, "**()(!!*)"], exit_code=2)
 
+    def test_required_version_matches_version(self) -> None:
+        self.invokeBlack(
+            ["--required-version", black.__version__], exit_code=0, ignore_config=True
+        )
+
+    def test_required_version_does_not_match_version(self) -> None:
+        self.invokeBlack(
+            ["--required-version", "20.99b"], exit_code=1, ignore_config=True
+        )
+
     def test_preserves_line_endings(self) -> None:
         with TemporaryDirectory() as workspace:
             test_file = Path(workspace) / "test.py"
@@ -1706,7 +1812,7 @@ class BlackTestCase(BlackBaseTestCase):
                 black.main, ["-", "--fast"], input=BytesIO(contents.encode("utf8"))
             )
             self.assertEqual(result.exit_code, 0)
-            output = runner.stdout_bytes
+            output = result.stdout_bytes
             self.assertIn(nl.encode("utf8"), output)
             if nl == "\n":
                 self.assertNotIn(b"\r\n", output)
@@ -1772,7 +1878,7 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_shhh_click(self) -> None:
         try:
-            from click import _unicodefun  # type: ignore
+            from click import _unicodefun
         except ModuleNotFoundError:
             self.skipTest("Incompatible Click version")
         if not hasattr(_unicodefun, "_verify_python3_env"):
@@ -1781,14 +1887,14 @@ class BlackTestCase(BlackBaseTestCase):
         with patch("locale.getpreferredencoding") as gpe:
             gpe.return_value = "ASCII"
             with self.assertRaises(RuntimeError):
-                _unicodefun._verify_python3_env()
+                _unicodefun._verify_python3_env()  # type: ignore
         # Now, let's silence Click...
         black.patch_click()
         # ...and confirm it's silent.
         with patch("locale.getpreferredencoding") as gpe:
             gpe.return_value = "ASCII"
             try:
-                _unicodefun._verify_python3_env()
+                _unicodefun._verify_python3_env()  # type: ignore
             except RuntimeError as re:
                 self.fail(f"`patch_click()` failed, exception still raised: {re}")
 
@@ -1805,7 +1911,7 @@ class BlackTestCase(BlackBaseTestCase):
             critical=fail,
             log=fail,
         ):
-            ff(THIS_FILE)
+            ff(THIS_DIR / "util.py")
 
     def test_invalid_config_return_code(self) -> None:
         tmp_file = Path(black.dump_to_file())
@@ -1865,7 +1971,10 @@ class BlackTestCase(BlackBaseTestCase):
             self.assertEqual(black.find_project_root((src_dir,)), src_dir.resolve())
             self.assertEqual(black.find_project_root((src_python,)), src_dir.resolve())
 
-    @patch("black.find_user_pyproject_toml", black.find_user_pyproject_toml.__wrapped__)
+    @patch(
+        "black.files.find_user_pyproject_toml",
+        black.files.find_user_pyproject_toml.__wrapped__,
+    )
     def test_find_user_pyproject_toml_linux(self) -> None:
         if system() == "Windows":
             return
@@ -1875,7 +1984,7 @@ class BlackTestCase(BlackBaseTestCase):
             tmp_user_config = Path(workspace) / "black"
             with patch.dict("os.environ", {"XDG_CONFIG_HOME": workspace}):
                 self.assertEqual(
-                    black.find_user_pyproject_toml(), tmp_user_config.resolve()
+                    black.files.find_user_pyproject_toml(), tmp_user_config.resolve()
                 )
 
         # Test fallback for XDG_CONFIG_HOME
@@ -1883,7 +1992,7 @@ class BlackTestCase(BlackBaseTestCase):
             os.environ.pop("XDG_CONFIG_HOME", None)
             fallback_user_config = Path("~/.config").expanduser() / "black"
             self.assertEqual(
-                black.find_user_pyproject_toml(), fallback_user_config.resolve()
+                black.files.find_user_pyproject_toml(), fallback_user_config.resolve()
             )
 
     def test_find_user_pyproject_toml_windows(self) -> None:
@@ -1891,7 +2000,9 @@ class BlackTestCase(BlackBaseTestCase):
             return
 
         user_config_path = Path.home() / ".black"
-        self.assertEqual(black.find_user_pyproject_toml(), user_config_path.resolve())
+        self.assertEqual(
+            black.files.find_user_pyproject_toml(), user_config_path.resolve()
+        )
 
     def test_bpo_33660_workaround(self) -> None:
         if system() == "Windows":
@@ -1937,6 +2048,7 @@ class BlackTestCase(BlackBaseTestCase):
         actual = diff_header.sub(DETERMINISTIC_HEADER, actual)
         self.assertEqual(actual, expected)
 
+    @pytest.mark.python2
     def test_docstring_reformat_for_py27(self) -> None:
         """
         Check that stripping trailing whitespace from Python 2 docstrings
@@ -1956,6 +2068,146 @@ class BlackTestCase(BlackBaseTestCase):
         self.assertEqual(result.exit_code, 0)
         actual = result.output
         self.assertFormatEqual(actual, expected)
+
+    @staticmethod
+    def compare_results(
+        result: click.testing.Result, expected_value: str, expected_exit_code: int
+    ) -> None:
+        """Helper method to test the value and exit code of a click Result."""
+        assert (
+            result.output == expected_value
+        ), "The output did not match the expected value."
+        assert result.exit_code == expected_exit_code, "The exit code is incorrect."
+
+    def test_code_option(self) -> None:
+        """Test the code option with no changes."""
+        code = 'print("Hello world")\n'
+        args = ["--code", code]
+        result = CliRunner().invoke(black.main, args)
+
+        self.compare_results(result, code, 0)
+
+    def test_code_option_changed(self) -> None:
+        """Test the code option when changes are required."""
+        code = "print('hello world')"
+        formatted = black.format_str(code, mode=DEFAULT_MODE)
+
+        args = ["--code", code]
+        result = CliRunner().invoke(black.main, args)
+
+        self.compare_results(result, formatted, 0)
+
+    def test_code_option_check(self) -> None:
+        """Test the code option when check is passed."""
+        args = ["--check", "--code", 'print("Hello world")\n']
+        result = CliRunner().invoke(black.main, args)
+        self.compare_results(result, "", 0)
+
+    def test_code_option_check_changed(self) -> None:
+        """Test the code option when changes are required, and check is passed."""
+        args = ["--check", "--code", "print('hello world')"]
+        result = CliRunner().invoke(black.main, args)
+        self.compare_results(result, "", 1)
+
+    def test_code_option_diff(self) -> None:
+        """Test the code option when diff is passed."""
+        code = "print('hello world')"
+        formatted = black.format_str(code, mode=DEFAULT_MODE)
+        result_diff = diff(code, formatted, "STDIN", "STDOUT")
+
+        args = ["--diff", "--code", code]
+        result = CliRunner().invoke(black.main, args)
+
+        # Remove time from diff
+        output = DIFF_TIME.sub("", result.output)
+
+        assert output == result_diff, "The output did not match the expected value."
+        assert result.exit_code == 0, "The exit code is incorrect."
+
+    def test_code_option_color_diff(self) -> None:
+        """Test the code option when color and diff are passed."""
+        code = "print('hello world')"
+        formatted = black.format_str(code, mode=DEFAULT_MODE)
+
+        result_diff = diff(code, formatted, "STDIN", "STDOUT")
+        result_diff = color_diff(result_diff)
+
+        args = ["--diff", "--color", "--code", code]
+        result = CliRunner().invoke(black.main, args)
+
+        # Remove time from diff
+        output = DIFF_TIME.sub("", result.output)
+
+        assert output == result_diff, "The output did not match the expected value."
+        assert result.exit_code == 0, "The exit code is incorrect."
+
+    def test_code_option_safe(self) -> None:
+        """Test that the code option throws an error when the sanity checks fail."""
+        # Patch black.assert_equivalent to ensure the sanity checks fail
+        with patch.object(black, "assert_equivalent", side_effect=AssertionError):
+            code = 'print("Hello world")'
+            error_msg = f"{code}\nerror: cannot format <string>: \n"
+
+            args = ["--safe", "--code", code]
+            result = CliRunner().invoke(black.main, args)
+
+            self.compare_results(result, error_msg, 123)
+
+    def test_code_option_fast(self) -> None:
+        """Test that the code option ignores errors when the sanity checks fail."""
+        # Patch black.assert_equivalent to ensure the sanity checks fail
+        with patch.object(black, "assert_equivalent", side_effect=AssertionError):
+            code = 'print("Hello world")'
+            formatted = black.format_str(code, mode=DEFAULT_MODE)
+
+            args = ["--fast", "--code", code]
+            result = CliRunner().invoke(black.main, args)
+
+            self.compare_results(result, formatted, 0)
+
+    def test_code_option_config(self) -> None:
+        """
+        Test that the code option finds the pyproject.toml in the current directory.
+        """
+        with patch.object(black, "parse_pyproject_toml", return_value={}) as parse:
+            # Make sure we are in the project root with the pyproject file
+            if not Path("tests").exists():
+                os.chdir("..")
+
+            args = ["--code", "print"]
+            CliRunner().invoke(black.main, args)
+
+            pyproject_path = Path(Path().cwd(), "pyproject.toml").resolve()
+            assert (
+                len(parse.mock_calls) >= 1
+            ), "Expected config parse to be called with the current directory."
+
+            _, call_args, _ = parse.mock_calls[0]
+            assert (
+                call_args[0].lower() == str(pyproject_path).lower()
+            ), "Incorrect config loaded."
+
+    def test_code_option_parent_config(self) -> None:
+        """
+        Test that the code option finds the pyproject.toml in the parent directory.
+        """
+        with patch.object(black, "parse_pyproject_toml", return_value={}) as parse:
+            # Make sure we are in the tests directory
+            if Path("tests").exists():
+                os.chdir("tests")
+
+            args = ["--code", "print"]
+            CliRunner().invoke(black.main, args)
+
+            pyproject_path = Path(Path().cwd().parent, "pyproject.toml").resolve()
+            assert (
+                len(parse.mock_calls) >= 1
+            ), "Expected config parse to be called with the current directory."
+
+            _, call_args, _ = parse.mock_calls[0]
+            assert (
+                call_args[0].lower() == str(pyproject_path).lower()
+            ), "Incorrect config loaded."
 
 
 with open(black.__file__, "r", encoding="utf-8") as _bf:

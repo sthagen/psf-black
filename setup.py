@@ -1,5 +1,5 @@
 # Copyright (C) 2020 Łukasz Langa
-from setuptools import setup
+from setuptools import setup, find_packages
 import sys
 import os
 
@@ -58,19 +58,23 @@ setup(
     author="Łukasz Langa",
     author_email="lukasz@langa.pl",
     url="https://github.com/psf/black",
-    project_urls={"Changelog": "https://github.com/psf/black/blob/master/CHANGES.md"},
+    project_urls={"Changelog": "https://github.com/psf/black/blob/main/CHANGES.md"},
     license="MIT",
     py_modules=["_black_version"],
     ext_modules=ext_modules,
-    packages=["blackd", "black", "blib2to3", "blib2to3.pgen2", "black_primer"],
+    packages=find_packages(where="src"),
     package_dir={"": "src"},
-    package_data={"blib2to3": ["*.txt"], "black": ["py.typed"]},
+    package_data={
+        "blib2to3": ["*.txt"],
+        "black": ["py.typed"],
+        "black_primer": ["primer.json"],
+    },
     python_requires=">=3.6.2",
     zip_safe=False,
     install_requires=[
         "click>=7.1.2",
         "appdirs",
-        "toml>=0.10.1",
+        "tomli>=0.2.6,<2.0.0",
         "typed-ast>=1.4.2; python_version < '3.8'",
         "regex>=2020.1.8",
         "pathspec>=0.8.1, <1",
@@ -79,9 +83,10 @@ setup(
         "mypy_extensions>=0.4.3",
     ],
     extras_require={
-        "d": ["aiohttp>=3.3.2", "aiohttp-cors"],
+        "d": ["aiohttp>=3.6.0", "aiohttp-cors>=0.4.0"],
         "colorama": ["colorama>=0.4.3"],
         "python2": ["typed-ast>=1.4.2"],
+        "uvloop": ["uvloop>=0.15.2"],
     },
     test_suite="tests.test_black",
     classifiers=[

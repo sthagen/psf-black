@@ -1,10 +1,12 @@
 import os
 import unittest
-from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Tuple, Iterator, Any
-import black
+from typing import List, Tuple, Any
 from functools import partial
+
+import black
+from black.output import out, err
+from black.debug import DebugVisitor
 
 THIS_DIR = Path(__file__).parent
 PROJECT_ROOT = THIS_DIR.parent
@@ -27,33 +29,22 @@ class BlackBaseTestCase(unittest.TestCase):
 
     def assertFormatEqual(self, expected: str, actual: str) -> None:
         if actual != expected and not os.environ.get("SKIP_AST_PRINT"):
-            bdv: black.DebugVisitor[Any]
-            black.out("Expected tree:", fg="green")
+            bdv: DebugVisitor[Any]
+            out("Expected tree:", fg="green")
             try:
                 exp_node = black.lib2to3_parse(expected)
-                bdv = black.DebugVisitor()
+                bdv = DebugVisitor()
                 list(bdv.visit(exp_node))
             except Exception as ve:
-                black.err(str(ve))
-            black.out("Actual tree:", fg="red")
+                err(str(ve))
+            out("Actual tree:", fg="red")
             try:
                 exp_node = black.lib2to3_parse(actual)
-                bdv = black.DebugVisitor()
+                bdv = DebugVisitor()
                 list(bdv.visit(exp_node))
             except Exception as ve:
-                black.err(str(ve))
+                err(str(ve))
         self.assertMultiLineEqual(expected, actual)
-
-
-@contextmanager
-def skip_if_exception(e: str) -> Iterator[None]:
-    try:
-        yield
-    except Exception as exc:
-        if exc.__class__.__name__ == e:
-            unittest.skip(f"Encountered expected exception {exc}, skipping")
-        else:
-            raise
 
 
 def read_data(name: str, data: bool = True) -> Tuple[str, str]:

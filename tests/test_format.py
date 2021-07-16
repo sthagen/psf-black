@@ -1,12 +1,12 @@
 from unittest.mock import patch
 
 import black
+import pytest
 from parameterized import parameterized
 
 from tests.util import (
     BlackBaseTestCase,
     fs,
-    ff,
     DEFAULT_MODE,
     dump_to_stderr,
     read_data,
@@ -41,19 +41,23 @@ SIMPLE_CASES = [
     "fmtskip3",
     "fmtskip4",
     "fmtskip5",
+    "fmtskip6",
     "fstring",
     "function",
     "function2",
     "function_trailing_comma",
     "import_spacing",
-    "numeric_literals_py2",
-    "python2",
-    "python2_unicode_literals",
     "remove_parens",
     "slices",
     "string_prefixes",
     "tricky_unicode_symbols",
     "tupleassign",
+]
+
+SIMPLE_CASES_PY2 = [
+    "numeric_literals_py2",
+    "python2",
+    "python2_unicode_literals",
 ]
 
 EXPERIMENTAL_STRING_PROCESSING_CASES = [
@@ -67,10 +71,27 @@ EXPERIMENTAL_STRING_PROCESSING_CASES = [
 
 
 SOURCES = [
-    "tests/test_black.py",
-    "tests/test_format.py",
-    "tests/test_blackd.py",
     "src/black/__init__.py",
+    "src/black/__main__.py",
+    "src/black/brackets.py",
+    "src/black/cache.py",
+    "src/black/comments.py",
+    "src/black/concurrency.py",
+    "src/black/const.py",
+    "src/black/debug.py",
+    "src/black/files.py",
+    "src/black/linegen.py",
+    "src/black/lines.py",
+    "src/black/mode.py",
+    "src/black/nodes.py",
+    "src/black/numerics.py",
+    "src/black/output.py",
+    "src/black/parsing.py",
+    "src/black/report.py",
+    "src/black/rusty.py",
+    "src/black/strings.py",
+    "src/black/trans.py",
+    "src/blackd/__init__.py",
     "src/blib2to3/pygram.py",
     "src/blib2to3/pytree.py",
     "src/blib2to3/pgen2/conv.py",
@@ -82,10 +103,23 @@ SOURCES = [
     "src/blib2to3/pgen2/tokenize.py",
     "src/blib2to3/pgen2/token.py",
     "setup.py",
+    "tests/test_black.py",
+    "tests/test_blackd.py",
+    "tests/test_format.py",
+    "tests/test_primer.py",
+    "tests/optional.py",
+    "tests/util.py",
+    "tests/conftest.py",
 ]
 
 
 class TestSimpleFormat(BlackBaseTestCase):
+    @parameterized.expand(SIMPLE_CASES_PY2)
+    @pytest.mark.python2
+    @patch("black.dump_to_file", dump_to_stderr)
+    def test_simple_format_py2(self, filename: str) -> None:
+        self.check_file(filename, DEFAULT_MODE)
+
     @parameterized.expand(SIMPLE_CASES)
     @patch("black.dump_to_file", dump_to_stderr)
     def test_simple_format(self, filename: str) -> None:
@@ -101,11 +135,11 @@ class TestSimpleFormat(BlackBaseTestCase):
     def test_source_is_formatted(self, filename: str) -> None:
         path = THIS_DIR.parent / filename
         self.check_file(str(path), DEFAULT_MODE, data=False)
-        self.assertFalse(ff(path))
 
     def check_file(self, filename: str, mode: black.Mode, *, data: bool = True) -> None:
         source, expected = read_data(filename, data=data)
         actual = fs(source, mode=mode)
         self.assertFormatEqual(expected, actual)
-        black.assert_equivalent(source, actual)
-        black.assert_stable(source, actual, mode)
+        if source != actual:
+            black.assert_equivalent(source, actual)
+            black.assert_stable(source, actual, mode)
