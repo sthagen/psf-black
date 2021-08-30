@@ -26,6 +26,7 @@ from typing import (
 import pytest
 import unittest
 from unittest.mock import patch, MagicMock
+from parameterized import parameterized
 
 import click
 from click import unstyle
@@ -44,6 +45,7 @@ from pathspec import PathSpec
 # Import other test classes
 from tests.util import (
     THIS_DIR,
+    change_directory,
     read_data,
     DETERMINISTIC_HEADER,
     BlackBaseTestCase,
@@ -297,6 +299,14 @@ class BlackTestCase(BlackBaseTestCase):
         self.assertIn(black.Feature.ASSIGNMENT_EXPRESSIONS, features)
         versions = black.detect_target_versions(root)
         self.assertIn(black.TargetVersion.PY38, versions)
+
+    @parameterized.expand([(3, 9), (3, 10)])
+    def test_pep_572_newer_syntax(self, major: int, minor: int) -> None:
+        source, expected = read_data(f"pep_572_py{major}{minor}")
+        actual = fs(source, mode=DEFAULT_MODE)
+        self.assertFormatEqual(expected, actual)
+        if sys.version_info >= (major, minor):
+            black.assert_equivalent(source, actual)
 
     def test_expression_ff(self) -> None:
         source, expected = read_data("expression")
@@ -1378,6 +1388,8 @@ class BlackTestCase(BlackBaseTestCase):
                 None,
                 report,
                 gitignore,
+                verbose=False,
+                quiet=False,
             )
         )
         self.assertEqual(sorted(expected), sorted(sources))
@@ -1627,6 +1639,30 @@ class BlackTestCase(BlackBaseTestCase):
             # __BLACK_STDIN_FILENAME__ should have been stripped
             report.done.assert_called_with(expected, black.Changed.YES)
 
+    def test_reformat_one_with_stdin_filename_ipynb(self) -> None:
+        with patch(
+            "black.format_stdin_to_stdout",
+            return_value=lambda *args, **kwargs: black.Changed.YES,
+        ) as fsts:
+            report = MagicMock()
+            p = "foo.ipynb"
+            path = Path(f"__BLACK_STDIN_FILENAME__{p}")
+            expected = Path(p)
+            black.reformat_one(
+                path,
+                fast=True,
+                write_back=black.WriteBack.YES,
+                mode=DEFAULT_MODE,
+                report=report,
+            )
+            fsts.assert_called_once_with(
+                fast=True,
+                write_back=black.WriteBack.YES,
+                mode=replace(DEFAULT_MODE, is_ipynb=True),
+            )
+            # __BLACK_STDIN_FILENAME__ should have been stripped
+            report.done.assert_called_with(expected, black.Changed.YES)
+
     def test_reformat_one_with_stdin_and_existing_path(self) -> None:
         with patch(
             "black.format_stdin_to_stdout",
@@ -1689,6 +1725,8 @@ class BlackTestCase(BlackBaseTestCase):
                 None,
                 report,
                 gitignore,
+                verbose=False,
+                quiet=False,
             )
         )
         self.assertEqual(sorted(expected), sorted(sources))
@@ -1716,9 +1754,35 @@ class BlackTestCase(BlackBaseTestCase):
                 None,
                 report,
                 root_gitignore,
+                verbose=False,
+                quiet=False,
             )
         )
         self.assertEqual(sorted(expected), sorted(sources))
+
+    def test_invalid_gitignore(self) -> None:
+        path = THIS_DIR / "data" / "invalid_gitignore_tests"
+        empty_config = path / "pyproject.toml"
+        result = BlackRunner().invoke(
+            black.main, ["--verbose", "--config", str(empty_config), str(path)]
+        )
+        assert result.exit_code == 1
+        assert result.stderr_bytes is not None
+
+        gitignore = path / ".gitignore"
+        assert f"Could not parse {gitignore}" in result.stderr_bytes.decode()
+
+    def test_invalid_nested_gitignore(self) -> None:
+        path = THIS_DIR / "data" / "invalid_nested_gitignore_tests"
+        empty_config = path / "pyproject.toml"
+        result = BlackRunner().invoke(
+            black.main, ["--verbose", "--config", str(empty_config), str(path)]
+        )
+        assert result.exit_code == 1
+        assert result.stderr_bytes is not None
+
+        gitignore = path / "a" / ".gitignore"
+        assert f"Could not parse {gitignore}" in result.stderr_bytes.decode()
 
     def test_empty_include(self) -> None:
         path = THIS_DIR / "data" / "include_exclude_tests"
@@ -1750,6 +1814,8 @@ class BlackTestCase(BlackBaseTestCase):
                 None,
                 report,
                 gitignore,
+                verbose=False,
+                quiet=False,
             )
         )
         self.assertEqual(sorted(expected), sorted(sources))
@@ -1774,6 +1840,8 @@ class BlackTestCase(BlackBaseTestCase):
                 None,
                 report,
                 gitignore,
+                verbose=False,
+                quiet=False,
             )
         )
         self.assertEqual(sorted(expected), sorted(sources))
@@ -1846,6 +1914,8 @@ class BlackTestCase(BlackBaseTestCase):
                     None,
                     report,
                     gitignore,
+                    verbose=False,
+                    quiet=False,
                 )
             )
         except ValueError as ve:
@@ -1867,6 +1937,8 @@ class BlackTestCase(BlackBaseTestCase):
                     None,
                     report,
                     gitignore,
+                    verbose=False,
+                    quiet=False,
                 )
             )
         path.iterdir.assert_called()
@@ -2009,17 +2081,12 @@ class BlackTestCase(BlackBaseTestCase):
             return
 
         # https://bugs.python.org/issue33660
-
-        old_cwd = Path.cwd()
-        try:
-            root = Path("/")
-            os.chdir(str(root))
+        root = Path("/")
+        with change_directory(root):
             path = Path("workspace") / "project"
             report = black.Report(verbose=True)
             normalized_path = black.normalize_path_maybe_ignore(path, root, report)
             self.assertEqual(normalized_path, "workspace/project")
-        finally:
-            os.chdir(str(old_cwd))
 
     def test_newline_comment_interaction(self) -> None:
         source = "class A:\\\r\n# type: ignore\n pass\n"
@@ -2170,10 +2237,6 @@ class BlackTestCase(BlackBaseTestCase):
         Test that the code option finds the pyproject.toml in the current directory.
         """
         with patch.object(black, "parse_pyproject_toml", return_value={}) as parse:
-            # Make sure we are in the project root with the pyproject file
-            if not Path("tests").exists():
-                os.chdir("..")
-
             args = ["--code", "print"]
             CliRunner().invoke(black.main, args)
 
@@ -2192,22 +2255,19 @@ class BlackTestCase(BlackBaseTestCase):
         Test that the code option finds the pyproject.toml in the parent directory.
         """
         with patch.object(black, "parse_pyproject_toml", return_value={}) as parse:
-            # Make sure we are in the tests directory
-            if Path("tests").exists():
-                os.chdir("tests")
+            with change_directory(Path("tests")):
+                args = ["--code", "print"]
+                CliRunner().invoke(black.main, args)
 
-            args = ["--code", "print"]
-            CliRunner().invoke(black.main, args)
+                pyproject_path = Path(Path().cwd().parent, "pyproject.toml").resolve()
+                assert (
+                    len(parse.mock_calls) >= 1
+                ), "Expected config parse to be called with the current directory."
 
-            pyproject_path = Path(Path().cwd().parent, "pyproject.toml").resolve()
-            assert (
-                len(parse.mock_calls) >= 1
-            ), "Expected config parse to be called with the current directory."
-
-            _, call_args, _ = parse.mock_calls[0]
-            assert (
-                call_args[0].lower() == str(pyproject_path).lower()
-            ), "Incorrect config loaded."
+                _, call_args, _ = parse.mock_calls[0]
+                assert (
+                    call_args[0].lower() == str(pyproject_path).lower()
+                ), "Incorrect config loaded."
 
 
 with open(black.__file__, "r", encoding="utf-8") as _bf:
