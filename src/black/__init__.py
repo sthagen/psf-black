@@ -95,6 +95,8 @@ class WriteBack(Enum):
 # Legacy name, left for integrations.
 FileMode = Mode
 
+DEFAULT_WORKERS = os.cpu_count()
+
 
 def read_pyproject_toml(
     ctx: click.Context, param: click.Parameter, value: Optional[str]
@@ -114,7 +116,7 @@ def read_pyproject_toml(
     except (OSError, ValueError) as e:
         raise click.FileError(
             filename=value, hint=f"Error reading configuration file: {e}"
-        )
+        ) from None
 
     if not config:
         return None
@@ -168,11 +170,11 @@ def validate_regex(
     ctx: click.Context,
     param: click.Parameter,
     value: Optional[str],
-) -> Optional[Pattern]:
+) -> Optional[Pattern[str]]:
     try:
         return re_compile_maybe_verbose(value) if value is not None else None
     except re.error:
-        raise click.BadParameter("Not a valid regular expression")
+        raise click.BadParameter("Not a valid regular expression") from None
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
@@ -319,6 +321,14 @@ def validate_regex(
     ),
 )
 @click.option(
+    "-W",
+    "--workers",
+    type=click.IntRange(min=1),
+    default=DEFAULT_WORKERS,
+    show_default=True,
+    help="Number of parallel workers",
+)
+@click.option(
     "-q",
     "--quiet",
     is_flag=True,
@@ -378,11 +388,12 @@ def main(
     quiet: bool,
     verbose: bool,
     required_version: str,
-    include: Pattern,
-    exclude: Optional[Pattern],
-    extend_exclude: Optional[Pattern],
-    force_exclude: Optional[Pattern],
+    include: Pattern[str],
+    exclude: Optional[Pattern[str]],
+    extend_exclude: Optional[Pattern[str]],
+    force_exclude: Optional[Pattern[str]],
     stdin_filename: Optional[str],
+    workers: int,
     src: Tuple[str, ...],
     config: Optional[str],
 ) -> None:
@@ -468,6 +479,7 @@ def main(
                 write_back=write_back,
                 mode=mode,
                 report=report,
+                workers=workers,
             )
 
     if verbose or not quiet:
@@ -644,12 +656,17 @@ def reformat_one(
 
 
 def reformat_many(
-    sources: Set[Path], fast: bool, write_back: WriteBack, mode: Mode, report: "Report"
+    sources: Set[Path],
+    fast: bool,
+    write_back: WriteBack,
+    mode: Mode,
+    report: "Report",
+    workers: Optional[int],
 ) -> None:
     """Reformat multiple files using a ProcessPoolExecutor."""
     executor: Executor
     loop = asyncio.get_event_loop()
-    worker_count = os.cpu_count()
+    worker_count = workers if workers is not None else DEFAULT_WORKERS
     if sys.platform == "win32":
         # Work around https://bugs.python.org/issue26903
         worker_count = min(worker_count, 60)
@@ -746,7 +763,10 @@ async def schedule_formatting(
                     sources_to_cache.append(src)
                 report.done(src, changed)
     if cancelled:
-        await asyncio.gather(*cancelled, loop=loop, return_exceptions=True)
+        if sys.version_info >= (3, 7):
+            await asyncio.gather(*cancelled, return_exceptions=True)
+        else:
+            await asyncio.gather(*cancelled, loop=loop, return_exceptions=True)
     if sources_to_cache:
         write_cache(cache, sources_to_cache, mode)
 
@@ -777,7 +797,9 @@ def format_file_in_place(
     except NothingChanged:
         return False
     except JSONDecodeError:
-        raise ValueError(f"File '{src}' cannot be parsed as valid Jupyter notebook.")
+        raise ValueError(
+            f"File '{src}' cannot be parsed as valid Jupyter notebook."
+        ) from None
 
     if write_back == WriteBack.YES:
         with open(src, "w", encoding=encoding, newline=newline) as f:
@@ -947,7 +969,7 @@ def format_cell(src: str, *, fast: bool, mode: Mode) -> str:
     try:
         masked_src, replacements = mask_cell(src_without_trailing_semicolon)
     except SyntaxError:
-        raise NothingChanged
+        raise NothingChanged from None
     masked_dst = format_str(masked_src, mode=mode)
     if not fast:
         check_stability_and_equivalence(masked_src, masked_dst, mode=mode)
@@ -957,7 +979,7 @@ def format_cell(src: str, *, fast: bool, mode: Mode) -> str:
     )
     dst = dst.rstrip("\n")
     if dst == src:
-        raise NothingChanged
+        raise NothingChanged from None
     return dst
 
 
@@ -970,7 +992,7 @@ def validate_metadata(nb: MutableMapping[str, Any]) -> None:
     """
     language = nb.get("metadata", {}).get("language_info", {}).get("name", None)
     if language is not None and language != "python":
-        raise NothingChanged
+        raise NothingChanged from None
 
 
 def format_ipynb_string(src_contents: str, *, fast: bool, mode: Mode) -> FileContent:
@@ -1039,6 +1061,15 @@ def format_str(src_contents: str, *, mode: Mode) -> FileContent:
         versions = mode.target_versions
     else:
         versions = detect_target_versions(src_node)
+
+    # TODO: fully drop support and this code hopefully in January 2022 :D
+    if TargetVersion.PY27 in mode.target_versions or versions == {TargetVersion.PY27}:
+        msg = (
+            "DEPRECATION: Python 2 support will be removed in the first stable release"
+            "expected in January 2022."
+        )
+        err(msg, fg="yellow", bold=True)
+
     normalize_fmt_off(src_node)
     lines = LineGenerator(
         mode=mode,
@@ -1081,7 +1112,7 @@ def decode_bytes(src: bytes) -> Tuple[FileContent, Encoding, NewLine]:
         return tiow.read(), encoding, newline
 
 
-def get_features_used(node: Node) -> Set[Feature]:
+def get_features_used(node: Node) -> Set[Feature]:  # noqa: C901
     """Return a set of (relatively) new Python features used in this file.
 
     Currently looking for:
@@ -1091,6 +1122,7 @@ def get_features_used(node: Node) -> Set[Feature]:
     - positional only arguments in function signatures and lambdas;
     - assignment expression;
     - relaxed decorator syntax;
+    - print / exec statements;
     """
     features: Set[Feature] = set()
     for n in node.pre_order():
@@ -1104,7 +1136,11 @@ def get_features_used(node: Node) -> Set[Feature]:
                 features.add(Feature.NUMERIC_UNDERSCORES)
 
         elif n.type == token.SLASH:
-            if n.parent and n.parent.type in {syms.typedargslist, syms.arglist}:
+            if n.parent and n.parent.type in {
+                syms.typedargslist,
+                syms.arglist,
+                syms.varargslist,
+            }:
                 features.add(Feature.POS_ONLY_ARGUMENTS)
 
         elif n.type == token.COLONEQUAL:
@@ -1134,6 +1170,11 @@ def get_features_used(node: Node) -> Set[Feature]:
                     for argch in ch.children:
                         if argch.type in STARS:
                             features.add(feature)
+
+        elif n.type == token.PRINT_STMT:
+            features.add(Feature.PRINT_STMT)
+        elif n.type == token.EXEC_STMT:
+            features.add(Feature.EXEC_STMT)
 
     return features
 
@@ -1202,9 +1243,8 @@ def assert_equivalent(src: str, dst: str, *, pass_num: int = 1) -> None:
         src_ast = parse_ast(src)
     except Exception as exc:
         raise AssertionError(
-            "cannot use --safe with this file; failed to parse source file.  AST"
-            f" error message: {exc}"
-        )
+            "cannot use --safe with this file; failed to parse source file."
+        ) from exc
 
     try:
         dst_ast = parse_ast(dst)
@@ -1265,7 +1305,7 @@ def patch_click() -> None:
     """
     try:
         from click import core
-        from click import _unicodefun  # type: ignore
+        from click import _unicodefun
     except ModuleNotFoundError:
         return
 
