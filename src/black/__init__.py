@@ -30,8 +30,9 @@ from typing import (
     Union,
 )
 
-from dataclasses import replace
 import click
+from dataclasses import replace
+from mypy_extensions import mypyc_attr
 
 from black.const import DEFAULT_LINE_LENGTH, DEFAULT_INCLUDES, DEFAULT_EXCLUDES
 from black.const import STDIN_PLACEHOLDER
@@ -65,6 +66,8 @@ from blib2to3.pytree import Node, Leaf
 from blib2to3.pgen2 import token
 
 from _black_version import version as __version__
+
+COMPILED = Path(__file__).suffix in (".pyd", ".so")
 
 # types
 FileContent = str
@@ -177,7 +180,12 @@ def validate_regex(
         raise click.BadParameter("Not a valid regular expression") from None
 
 
-@click.command(context_settings=dict(help_option_names=["-h", "--help"]))
+@click.command(
+    context_settings=dict(help_option_names=["-h", "--help"]),
+    # While Click does set this field automatically using the docstring, mypyc
+    # (annoyingly) strips 'em so we need to set it here too.
+    help="The uncompromising code formatter.",
+)
 @click.option("-c", "--code", type=str, help="Format the code passed in as a string.")
 @click.option(
     "-l",
@@ -346,7 +354,10 @@ def validate_regex(
         " due to exclusion patterns."
     ),
 )
-@click.version_option(version=__version__)
+@click.version_option(
+    version=__version__,
+    message=f"%(prog)s, %(version)s (compiled: {'yes' if COMPILED else 'no'})",
+)
 @click.argument(
     "src",
     nargs=-1,
@@ -387,7 +398,7 @@ def main(
     experimental_string_processing: bool,
     quiet: bool,
     verbose: bool,
-    required_version: str,
+    required_version: Optional[str],
     include: Pattern[str],
     exclude: Optional[Pattern[str]],
     extend_exclude: Optional[Pattern[str]],
@@ -655,6 +666,9 @@ def reformat_one(
         report.failed(src, str(exc))
 
 
+# diff-shades depends on being to monkeypatch this function to operate. I know it's
+# not ideal, but this shouldn't cause any issues ... hopefully. ~ichard26
+@mypyc_attr(patchable=True)
 def reformat_many(
     sources: Set[Path],
     fast: bool,
@@ -669,6 +683,7 @@ def reformat_many(
     worker_count = workers if workers is not None else DEFAULT_WORKERS
     if sys.platform == "win32":
         # Work around https://bugs.python.org/issue26903
+        assert worker_count is not None
         worker_count = min(worker_count, 60)
     try:
         executor = ProcessPoolExecutor(max_workers=worker_count)
@@ -1065,7 +1080,7 @@ def format_str(src_contents: str, *, mode: Mode) -> FileContent:
     # TODO: fully drop support and this code hopefully in January 2022 :D
     if TargetVersion.PY27 in mode.target_versions or versions == {TargetVersion.PY27}:
         msg = (
-            "DEPRECATION: Python 2 support will be removed in the first stable release"
+            "DEPRECATION: Python 2 support will be removed in the first stable release "
             "expected in January 2022."
         )
         err(msg, fg="yellow", bold=True)
@@ -1132,8 +1147,17 @@ def get_features_used(node: Node) -> Set[Feature]:  # noqa: C901
                 features.add(Feature.F_STRINGS)
 
         elif n.type == token.NUMBER:
-            if "_" in n.value:  # type: ignore
+            assert isinstance(n, Leaf)
+            if "_" in n.value:
                 features.add(Feature.NUMERIC_UNDERSCORES)
+            elif n.value.endswith(("L", "l")):
+                # Python 2: 10L
+                features.add(Feature.LONG_INT_LITERAL)
+            elif len(n.value) >= 2 and n.value[0] == "0" and n.value[1].isdigit():
+                # Python 2: 0123; 00123; ...
+                if not all(char == "0" for char in n.value):
+                    # although we don't want to match 0000 or similar
+                    features.add(Feature.OCTAL_INT_LITERAL)
 
         elif n.type == token.SLASH:
             if n.parent and n.parent.type in {
@@ -1171,10 +1195,31 @@ def get_features_used(node: Node) -> Set[Feature]:  # noqa: C901
                         if argch.type in STARS:
                             features.add(feature)
 
-        elif n.type == token.PRINT_STMT:
+        # Python 2 only features (for its deprecation) except for integers, see above
+        elif n.type == syms.print_stmt:
             features.add(Feature.PRINT_STMT)
-        elif n.type == token.EXEC_STMT:
+        elif n.type == syms.exec_stmt:
             features.add(Feature.EXEC_STMT)
+        elif n.type == syms.tfpdef:
+            # def set_position((x, y), value):
+            #     ...
+            features.add(Feature.AUTOMATIC_PARAMETER_UNPACKING)
+        elif n.type == syms.except_clause:
+            # try:
+            #     ...
+            # except Exception, err:
+            #     ...
+            if len(n.children) >= 4:
+                if n.children[-2].type == token.COMMA:
+                    features.add(Feature.COMMA_STYLE_EXCEPT)
+        elif n.type == syms.raise_stmt:
+            # raise Exception, "msg"
+            if len(n.children) >= 4:
+                if n.children[-2].type == token.COMMA:
+                    features.add(Feature.COMMA_STYLE_RAISE)
+        elif n.type == token.BACKQUOTE:
+            # `i'm surprised this ever existed`
+            features.add(Feature.BACKQUOTE_REPR)
 
     return features
 

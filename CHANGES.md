@@ -1,5 +1,22 @@
 # Change Log
 
+## 21.11b0
+
+### _Black_
+
+- Warn about Python 2 deprecation in more cases by improving Python 2 only syntax
+  detection (#2592)
+- Add experimental PyPy support (#2559)
+- Add partial support for the match statement. As it's experimental, it's only enabled
+  when `--target-version py310` is explicitly specified (#2586)
+- Add support for parenthesized with (#2586)
+- Declare support for Python 3.10 for running Black (#2562)
+
+### Integrations
+
+- Fixed vim plugin with Python 3.10 by removing deprecated distutils import (#2610)
+- The vim plugin now parses `skip_magic_trailing_comma` from pyproject.toml (#2613)
+
 ## 21.10b0
 
 ### _Black_
@@ -7,7 +24,7 @@
 - Document stability policy, that will apply for non-beta releases (#2529)
 - Add new `--workers` parameter (#2514)
 - Fixed feature detection for positional-only arguments in lambdas (#2532)
-- Bumped typed-ast version minimum to 1.4.3 for 3.10 compatiblity (#2519)
+- Bumped typed-ast version minimum to 1.4.3 for 3.10 compatibility (#2519)
 - Fixed a Python 3.10 compatibility issue where the loop argument was still being passed
   even though it has been removed (#2580)
 - Deprecate Python 2 formatting support (#2523)
