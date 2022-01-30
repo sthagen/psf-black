@@ -5,6 +5,7 @@ The most common questions and issues users face are aggregated to this FAQ.
 ```{contents}
 :local:
 :backlinks: none
+:class: this-will-duplicate-information-and-it-is-still-useful-here
 ```
 
 ## Does Black have an API?
@@ -16,9 +17,8 @@ though.
 
 ## Is Black safe to use?
 
-Yes, for the most part. _Black_ is strictly about formatting, nothing else. But because
-_Black_ is still in [beta](index.rst), some edges are still a bit rough. To combat
-issues, the equivalence of code after formatting is
+Yes. _Black_ is strictly about formatting, nothing else. Black strives to ensure that
+after formatting the AST is
 [checked](the_black_code_style/current_style.md#ast-before-and-after-formatting) with
 limited special cases where the code is allowed to differ. If issues are found, an error
 is raised and the file is left untouched. Magical comments that influence linters and
@@ -26,14 +26,12 @@ other tools, such as `# noqa`, may be moved by _Black_. See below for more detai
 
 ## How stable is Black's style?
 
-Quite stable. _Black_ aims to enforce one style and one style only, with some room for
-pragmatism. However, _Black_ is still in beta so style changes are both planned and
-still proposed on the issue tracker. See
-[The Black Code Style](the_black_code_style/index.rst) for more details.
+Stable. _Black_ aims to enforce one style and one style only, with some room for
+pragmatism. See [The Black Code Style](the_black_code_style/index.rst) for more details.
 
 Starting in 2022, the formatting output will be stable for the releases made in the same
 year (other than unintentional bugs). It is possible to opt-in to the latest formatting
-styles, using the `--future` flag.
+styles, using the `--preview` flag.
 
 ## Why is my file not formatted?
 
@@ -73,18 +71,16 @@ readability because operators are misaligned. Disable W503 and enable the
 disabled-by-default counterpart W504. E203 should be disabled while changes are still
 [discussed](https://github.com/PyCQA/pycodestyle/issues/373).
 
-## Does Black support Python 2?
+## Which Python versions does Black support?
 
-```{warning}
-Python 2 support has been deprecated since 21.10b0.
+Currently the runtime requires Python 3.6-3.10. Formatting is supported for files
+containing syntax from Python 3.3 to 3.10. We promise to support at least all Python
+versions that have not reached their end of life. This is the case for both running
+_Black_ and formatting code.
 
-This support will be dropped in the first stable release, expected for January 2022.
-See [The Black Code Style](the_black_code_style/index.rst) for details.
-```
-
-For formatting, yes! [Install](getting_started.md#installation) with the `python2` extra
-to format Python 2 files too! In terms of running _Black_ though, Python 3.6 or newer is
-required.
+Support for formatting Python 2 code was removed in version 22.0. While we've made no
+plans to stop supporting older Python 3 minor versions immediately, their support might
+also be removed some time in the future without a deprecation period.
 
 ## Why does my linter or typechecker complain after I format my code?
 
@@ -96,8 +92,7 @@ codebase with _Black_.
 
 ## Can I run Black with PyPy?
 
-Yes, there is support for PyPy 3.7 and higher. You cannot format Python 2 files under
-PyPy, because PyPy's inbuilt ast module does not support this.
+Yes, there is support for PyPy 3.7 and higher.
 
 ## Why does Black not detect syntax errors in my code?
 
