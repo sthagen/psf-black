@@ -794,6 +794,12 @@ class BlackTestCase(BlackBaseTestCase):
         self.assertEqual(
             black.get_features_used(node), {Feature.ANN_ASSIGN_EXTENDED_RHS}
         )
+        node = black.lib2to3_parse("try: pass\nexcept Something: pass")
+        self.assertEqual(black.get_features_used(node), set())
+        node = black.lib2to3_parse("try: pass\nexcept (*Something,): pass")
+        self.assertEqual(black.get_features_used(node), set())
+        node = black.lib2to3_parse("try: pass\nexcept *Group: pass")
+        self.assertEqual(black.get_features_used(node), {Feature.EXCEPT_STAR})
 
     def test_get_features_used_for_future_flags(self) -> None:
         for src, features in [
@@ -1256,23 +1262,25 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_shhh_click(self) -> None:
         try:
-            from click import _unicodefun
+            from click import _unicodefun  # type: ignore
         except ImportError:
             self.skipTest("Incompatible Click version")
-        if not hasattr(_unicodefun, "_verify_python3_env"):
+
+        if not hasattr(_unicodefun, "_verify_python_env"):
             self.skipTest("Incompatible Click version")
+
         # First, let's see if Click is crashing with a preferred ASCII charset.
         with patch("locale.getpreferredencoding") as gpe:
             gpe.return_value = "ASCII"
             with self.assertRaises(RuntimeError):
-                _unicodefun._verify_python3_env()  # type: ignore
+                _unicodefun._verify_python_env()
         # Now, let's silence Click...
         black.patch_click()
         # ...and confirm it's silent.
         with patch("locale.getpreferredencoding") as gpe:
             gpe.return_value = "ASCII"
             try:
-                _unicodefun._verify_python3_env()  # type: ignore
+                _unicodefun._verify_python_env()
             except RuntimeError as re:
                 self.fail(f"`patch_click()` failed, exception still raised: {re}")
 

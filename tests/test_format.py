@@ -44,6 +44,7 @@ SIMPLE_CASES: List[str] = [
     "fmtskip4",
     "fmtskip5",
     "fmtskip6",
+    "fmtskip7",
     "fstring",
     "function",
     "function2",
@@ -71,6 +72,11 @@ PY310_CASES: List[str] = [
     "parenthesized_context_managers",
 ]
 
+PY311_CASES: List[str] = [
+    "pep_654",
+    "pep_654_style",
+]
+
 PREVIEW_CASES: List[str] = [
     # string processing
     "cantfit",
@@ -83,6 +89,8 @@ PREVIEW_CASES: List[str] = [
     "remove_except_parens",
     "remove_for_brackets",
     "one_element_subscript",
+    "remove_await_parens",
+    "return_annotation_brackets",
 ]
 
 SOURCES: List[str] = [
@@ -192,6 +200,16 @@ def test_pep_570() -> None:
     assert_format(source, expected, minimum_version=(3, 8))
 
 
+def test_remove_with_brackets() -> None:
+    source, expected = read_data("remove_with_brackets")
+    assert_format(
+        source,
+        expected,
+        black.Mode(preview=True),
+        minimum_version=(3, 9),
+    )
+
+
 @pytest.mark.parametrize("filename", PY310_CASES)
 def test_python_310(filename: str) -> None:
     source, expected = read_data(filename)
@@ -212,6 +230,13 @@ def test_patma_invalid() -> None:
         assert_format(source, expected, mode, minimum_version=(3, 10))
 
     exc_info.match("Cannot parse: 10:11")
+
+
+@pytest.mark.parametrize("filename", PY311_CASES)
+def test_python_311(filename: str) -> None:
+    source, expected = read_data(filename)
+    mode = black.Mode(target_versions={black.TargetVersion.PY311})
+    assert_format(source, expected, mode, minimum_version=(3, 11))
 
 
 def test_python_2_hint() -> None:

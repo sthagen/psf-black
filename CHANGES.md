@@ -10,9 +10,16 @@
 
 <!-- Changes that affect Black's stable style -->
 
+- Fix unstable formatting involving `# fmt: skip` comments without internal spaces
+  (#2970)
+
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
+
+- Remove redundant parentheses around awaited objects (#2991)
+- Parentheses around return annotations are now managed (#2990)
+- Remove unnecessary parentheses from `with` statements (#2926)
 
 ### _Blackd_
 
@@ -35,11 +42,19 @@
 
 <!-- Changes to Black's terminal output and error messages -->
 
+- Output python version and implementation as part of `--version` flag (#2997)
+
 ### Packaging
 
 <!-- Changes to how Black is packaged, such as dependency requirements -->
 
+- Use `tomli` instead of `tomllib` on Python 3.11 builds where `tomllib` is not
+  available (#2987)
+
 ### Parser
+
+- [PEP 654](https://peps.python.org/pep-0654/#except) syntax (for example,
+  `except *ExceptionGroup:`) is now supported (#3016)
 
 <!-- Changes to the parser or to version autodetection -->
 
