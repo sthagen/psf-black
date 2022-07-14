@@ -10,9 +10,15 @@
 
 <!-- Changes that affect Black's stable style -->
 
+- Comments are no longer deleted when a line had spaces removed around power operators
+  (#2874)
+
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
+
+- Single-character closing docstring quotes are no longer moved to their own line as
+  this is invalid. This was a bug introduced in version 22.6.0. (#3166)
 
 ### _Blackd_
 
@@ -46,6 +52,10 @@
 ### Parser
 
 <!-- Changes to the parser or to version autodetection -->
+
+- Type comments are now included in the AST equivalence check consistently so accidental
+  deletion raises an error. Though type comments can't be tracked when running on PyPy
+  3.7 due to standard library limitations. (#2874)
 
 ### Performance
 
