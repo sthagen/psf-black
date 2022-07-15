@@ -19,6 +19,8 @@
 
 - Single-character closing docstring quotes are no longer moved to their own line as
   this is invalid. This was a bug introduced in version 22.6.0. (#3166)
+- `--skip-string-normalization` / `-S` now prevents docstring prefixes from being
+  normalized as expected (#3168)
 
 ### _Blackd_
 
@@ -44,6 +46,9 @@
 ### Output
 
 <!-- Changes to Black's terminal output and error messages -->
+
+- Change from deprecated `asyncio.get_event_loop()` to create our event loop which
+  removes DeprecationWarning (#3164)
 
 ### Packaging
 
