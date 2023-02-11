@@ -63,92 +63,51 @@ limit. Line continuation backslashes are converted into parenthesized strings.
 Unnecessary parentheses are stripped. The stability and status of this feature is
 tracked in [this issue](https://github.com/psf/black/issues/2188).
 
-### Improved empty line management
+### Improved line breaks
 
-1.  _Black_ will remove newlines in the beginning of new code blocks, i.e. when the
-    indentation level is increased. For example:
+For assignment expressions, _Black_ now prefers to split and wrap the right side of the
+assignment instead of left side. For example:
 
-    ```python
-    def my_func():
+```python
+some_dict[
+    "with_a_long_key"
+] = some_looooooooong_module.some_looooooooooooooong_function_name(
+    first_argument, second_argument, third_argument
+)
+```
 
-        print("The line above me will be deleted!")
-    ```
+will be changed to:
 
-    will be changed to:
-
-    ```python
-    def my_func():
-        print("The line above me will be deleted!")
-    ```
-
-    This new feature will be applied to **all code blocks**: `def`, `class`, `if`,
-    `for`, `while`, `with`, `case` and `match`.
-
-2.  _Black_ will enforce empty lines before classes and functions with leading comments.
-    For example:
-
-    ```python
-    some_var = 1
-    # Leading sticky comment
-    def my_func():
-        ...
-    ```
-
-    will be changed to:
-
-    ```python
-    some_var = 1
-
-
-    # Leading sticky comment
-    def my_func():
-        ...
-    ```
+```python
+some_dict["with_a_long_key"] = (
+    some_looooooooong_module.some_looooooooooooooong_function_name(
+        first_argument, second_argument, third_argument
+    )
+)
+```
 
 ### Improved parentheses management
 
-_Black_ will format parentheses around return annotations similarly to other sets of
-parentheses. For example:
+For dict literals with long values, they are now wrapped in parentheses. Unnecessary
+parentheses are now removed. For example:
 
 ```python
-def foo() -> (int):
-    ...
-
-def foo() -> looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong:
-    ...
+my_dict = {
+    my_dict = {
+    "a key in my dict": a_very_long_variable
+    * and_a_very_long_function_call()
+    / 100000.0,
+    "another key": (short_value),
+}
 ```
 
 will be changed to:
 
 ```python
-def foo() -> int:
-    ...
-
-
-def foo() -> (
-    looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong
-):
-    ...
-```
-
-And, extra parentheses in `await` expressions and `with` statements are removed. For
-example:
-
-```python
-with ((open("bla.txt")) as f, open("x")):
-    ...
-
-async def main():
-    await (asyncio.sleep(1))
-```
-
-will be changed to:
-
-```python
-with open("bla.txt") as f, open("x"):
-    ...
-
-
-async def main():
-    await asyncio.sleep(1)
+my_dict = {
+    "a key in my dict": (
+        a_very_long_variable * and_a_very_long_function_call() / 100000.0
+    ),
+    "another key": short_value,
+}
 ```
