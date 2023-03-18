@@ -10,12 +10,17 @@
 
 <!-- Changes that affect Black's stable style -->
 
+- Import lines with `# fmt: skip` and `# fmt: off` no longer have an extra blank line
+  added when they are right after another import line (#3610)
+
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
 
 - Add trailing commas to collection literals even if there's a comment after the last
   entry (#3393)
+- `async def`, `async for`, and `async with` statements are now formatted consistently
+  compared to their non-async version. (#3609)
 - `with` statements that contain two context managers will be consistently wrapped in
   parentheses (#3589)
 
@@ -51,6 +56,9 @@
 
 <!-- Major changes to documentation and policies. Small docs changes
      don't need a changelog entry. -->
+
+- Document that only the most recent release is supported for security issues;
+  vulnerabilities should be reported through Tidelift (#3612)
 
 ## 23.1.0
 

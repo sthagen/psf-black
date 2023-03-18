@@ -28,7 +28,7 @@ from black.nodes import (
     is_multiline_string,
     is_one_sequence_between,
     is_type_comment,
-    is_with_stmt,
+    is_with_or_async_with_stmt,
     replace_child,
     syms,
     whitespace,
@@ -124,9 +124,9 @@ class Line:
         return bool(self) and is_import(self.leaves[0])
 
     @property
-    def is_with_stmt(self) -> bool:
+    def is_with_or_async_with_stmt(self) -> bool:
         """Is this a with_stmt line?"""
-        return bool(self) and is_with_stmt(self.leaves[0])
+        return bool(self) and is_with_or_async_with_stmt(self.leaves[0])
 
     @property
     def is_class(self) -> bool:
@@ -194,6 +194,26 @@ class Line:
         if len(self.leaves) == 0:
             return False
         return self.leaves[-1].type == token.COLON
+
+    def is_fmt_pass_converted(
+        self, *, first_leaf_matches: Optional[Callable[[Leaf], bool]] = None
+    ) -> bool:
+        """Is this line converted from fmt off/skip code?
+
+        If first_leaf_matches is not None, it only returns True if the first
+        leaf of converted code matches.
+        """
+        if len(self.leaves) != 1:
+            return False
+        leaf = self.leaves[0]
+        if (
+            leaf.type != STANDALONE_COMMENT
+            or leaf.fmt_pass_converted_first_leaf is None
+        ):
+            return False
+        return first_leaf_matches is None or first_leaf_matches(
+            leaf.fmt_pass_converted_first_leaf
+        )
 
     def contains_standalone_comments(self, depth_limit: int = sys.maxsize) -> bool:
         """If so, needs to be split before emitting."""
@@ -597,6 +617,7 @@ class EmptyLineTracker:
             self.previous_line
             and self.previous_line.is_import
             and not current_line.is_import
+            and not current_line.is_fmt_pass_converted(first_leaf_matches=is_import)
             and depth == self.previous_line.depth
         ):
             return (before or 1), 0
@@ -872,7 +893,7 @@ def can_omit_invisible_parens(
         if (
             Preview.wrap_multiple_context_managers_in_parens in line.mode
             and max_priority == COMMA_PRIORITY
-            and rhs.head.is_with_stmt
+            and rhs.head.is_with_or_async_with_stmt
         ):
             # For two context manager with statements, the optional parentheses read
             # better. In this case, `rhs.body` is the context managers part of
