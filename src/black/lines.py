@@ -33,6 +33,7 @@ from black.nodes import (
     syms,
     whitespace,
 )
+from black.strings import str_width
 from blib2to3.pgen2 import token
 from blib2to3.pytree import Leaf, Node
 
@@ -521,7 +522,7 @@ class EmptyLineTracker:
     mode: Mode
     previous_line: Optional[Line] = None
     previous_block: Optional[LinesBlock] = None
-    previous_defs: List[int] = field(default_factory=list)
+    previous_defs: List[Line] = field(default_factory=list)
     semantic_leading_comment: Optional[LinesBlock] = None
 
     def maybe_empty_lines(self, current_line: Line) -> LinesBlock:
@@ -577,12 +578,18 @@ class EmptyLineTracker:
         else:
             before = 0
         depth = current_line.depth
-        while self.previous_defs and self.previous_defs[-1] >= depth:
+        while self.previous_defs and self.previous_defs[-1].depth >= depth:
             if self.mode.is_pyi:
                 assert self.previous_line is not None
                 if depth and not current_line.is_def and self.previous_line.is_def:
                     # Empty lines between attributes and methods should be preserved.
                     before = min(1, before)
+                elif (
+                    Preview.blank_line_after_nested_stub_class in self.mode
+                    and self.previous_defs[-1].is_class
+                    and not self.previous_defs[-1].is_stub_class
+                ):
+                    before = 1
                 elif depth:
                     before = 0
                 else:
@@ -592,7 +599,7 @@ class EmptyLineTracker:
                     before = 1
                 elif (
                     not depth
-                    and self.previous_defs[-1]
+                    and self.previous_defs[-1].depth
                     and current_line.leaves[-1].type == token.COLON
                     and (
                         current_line.leaves[0].value
@@ -637,7 +644,7 @@ class EmptyLineTracker:
         self, current_line: Line, before: int
     ) -> Tuple[int, int]:
         if not current_line.is_decorator:
-            self.previous_defs.append(current_line.depth)
+            self.previous_defs.append(current_line)
         if self.previous_line is None:
             # Don't insert empty lines before the first line in the file.
             return 0, 0
@@ -753,9 +760,11 @@ def is_line_short_enough(  # noqa: C901
     if not line_str:
         line_str = line_to_string(line)
 
+    width = str_width if mode.preview else len
+
     if Preview.multiline_string_handling not in mode:
         return (
-            len(line_str) <= mode.line_length
+            width(line_str) <= mode.line_length
             and "\n" not in line_str  # multiline strings
             and not line.contains_standalone_comments()
         )
@@ -764,10 +773,10 @@ def is_line_short_enough(  # noqa: C901
         return False
     if "\n" not in line_str:
         # No multiline strings (MLS) present
-        return len(line_str) <= mode.line_length
+        return width(line_str) <= mode.line_length
 
     first, *_, last = line_str.split("\n")
-    if len(first) > mode.line_length or len(last) > mode.line_length:
+    if width(first) > mode.line_length or width(last) > mode.line_length:
         return False
 
     # Traverse the AST to examine the context of the multiline string (MLS),
