@@ -32,6 +32,8 @@
 
 <!-- Changes to the parser or to version autodetection -->
 
+- Add support for the new PEP 695 syntax in Python 3.12 (#3703)
+
 ### Performance
 
 <!-- Changes that improve Black's performance. -->
@@ -43,6 +45,9 @@
 ### _Blackd_
 
 <!-- Changes to blackd -->
+
+- The `blackd` argument parser now shows the default values for options in their help
+  text (#3712)
 
 ### Integrations
 
