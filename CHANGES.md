@@ -25,11 +25,17 @@
 
 <!-- Changes to how Black can be configured -->
 
+- The `--workers` argument to Black can now be specified via the `BLACK_NUM_WORKERS`
+  environment variable (#3743)
 - `.pytest_cache`, `.ruff_cache` and `.vscode` are now excluded by default (#3691)
+- Fix black not honouring `pyproject.toml` settings when running `--stdin-filename` and
+  the `pyproject.toml` found isn't in the current working directory (#3719)
 
 ### Packaging
 
 <!-- Changes to how Black is packaged, such as dependency requirements -->
+
+- Upgrade mypyc from 0.991 to 1.3 (#3697)
 
 ### Parser
 
@@ -46,6 +52,7 @@
 <!-- Changes to Black's terminal output and error messages -->
 
 - Use aware UTC datetimes internally, avoids deprecation warning on Python 3.12 (#3728)
+- Change verbose logging to exactly mirror _Black_'s logic for source discovery (#3749)
 
 ### _Blackd_
 
