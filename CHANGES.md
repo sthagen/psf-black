@@ -12,6 +12,8 @@
 
 - Fix a bug where an illegal trailing comma was added to return type annotations using
   PEP 604 unions (#3735)
+- Fix a bug where multi-line open parenthesis magic comment like `type: ignore` were not
+  correctly parsed (#3740)
 
 ### Preview style
 
@@ -47,6 +49,8 @@
 
 <!-- Changes that improve Black's performance. -->
 
+- Avoid importing `IPython` in a case where we wouldn't need it (#3748)
+
 ### Output
 
 <!-- Changes to Black's terminal output and error messages -->
@@ -66,11 +70,16 @@
 <!-- For example, Docker, GitHub Actions, pre-commit, editors -->
 
 - Update GitHub Action to display black output in the job summary (#3688)
+- Deprecated `set-output` command in CI test to keep up to date with GitHub's
+  deprecation announcement (#3757)
 
 ### Documentation
 
 <!-- Major changes to documentation and policies. Small docs changes
      don't need a changelog entry. -->
+
+- Updated the _classes_ and _exceptions_ documentation in Developer reference to match
+  the latest ccode base. (#3755)
 
 ## 23.3.0
 
