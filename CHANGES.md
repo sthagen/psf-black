@@ -6,6 +6,9 @@
 
 <!-- Include any especially major or disruptive changes here -->
 
+- Runtime support for Python 3.7 has been removed. Formatting 3.7 code will still be
+  supported until further notice (#3765)
+
 ### Stable style
 
 <!-- Changes that affect Black's stable style -->
@@ -32,6 +35,8 @@
 - `.pytest_cache`, `.ruff_cache` and `.vscode` are now excluded by default (#3691)
 - Fix black not honouring `pyproject.toml` settings when running `--stdin-filename` and
   the `pyproject.toml` found isn't in the current working directory (#3719)
+- Black will now error if `exclude` and `extend-exclude` have invalid data types in
+  `pyproject.toml`, instead of silently doing the wrong thing (#3764)
 
 ### Packaging
 
@@ -69,6 +74,9 @@
 
 <!-- For example, Docker, GitHub Actions, pre-commit, editors -->
 
+- Black is now tested with
+  [`PYTHONWARNDEFAULTENCODING = 1`](https://docs.python.org/3/library/io.html#io-encoding-warning)
+  (#3763)
 - Update GitHub Action to display black output in the job summary (#3688)
 - Deprecated `set-output` command in CI test to keep up to date with GitHub's
   deprecation announcement (#3757)
