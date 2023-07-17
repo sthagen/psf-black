@@ -508,6 +508,8 @@ class BlackTestCase(BlackBaseTestCase):
             "pathlib.Path.cwd", return_value=working_directory
         ), patch("pathlib.Path.is_dir", side_effect=mock_n_calls([True])):
             ctx = FakeContext()
+            # Note that the root folder (project_root) isn't the folder
+            # named "root" (aka working_directory)
             ctx.obj["root"] = project_root
             report = MagicMock(verbose=True)
             black.get_sources(
@@ -527,7 +529,7 @@ class BlackTestCase(BlackBaseTestCase):
             for _, mock_args, _ in report.path_ignored.mock_calls
         ), "A symbolic link was reported."
         report.path_ignored.assert_called_once_with(
-            Path("child", "b.py"), "matches a .gitignore file content"
+            Path("root", "child", "b.py"), "matches a .gitignore file content"
         )
 
     def test_report_verbose(self) -> None:
@@ -1454,30 +1456,6 @@ class BlackTestCase(BlackBaseTestCase):
     def test_assert_equivalent_different_asts(self) -> None:
         with self.assertRaises(AssertionError):
             black.assert_equivalent("{}", "None")
-
-    def test_shhh_click(self) -> None:
-        try:
-            from click import _unicodefun  # type: ignore
-        except ImportError:
-            self.skipTest("Incompatible Click version")
-
-        if not hasattr(_unicodefun, "_verify_python_env"):
-            self.skipTest("Incompatible Click version")
-
-        # First, let's see if Click is crashing with a preferred ASCII charset.
-        with patch("locale.getpreferredencoding") as gpe:
-            gpe.return_value = "ASCII"
-            with self.assertRaises(RuntimeError):
-                _unicodefun._verify_python_env()
-        # Now, let's silence Click...
-        black.patch_click()
-        # ...and confirm it's silent.
-        with patch("locale.getpreferredencoding") as gpe:
-            gpe.return_value = "ASCII"
-            try:
-                _unicodefun._verify_python_env()
-            except RuntimeError as re:
-                self.fail(f"`patch_click()` failed, exception still raised: {re}")
 
     def test_root_logger_not_used_directly(self) -> None:
         def fail(*args: Any, **kwargs: Any) -> None:
