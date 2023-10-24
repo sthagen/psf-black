@@ -12,8 +12,7 @@
 
 ### Preview style
 
-- Fix merging implicit multiline strings that have inline comments (#3956)
-- Allow empty first line after block open before a comment or compound statement (#3967)
+<!-- Changes that affect Black's preview style -->
 
 ### Configuration
 
@@ -22,8 +21,6 @@
 ### Packaging
 
 <!-- Changes to how Black is packaged, such as dependency requirements -->
-
-- Change Dockerfile to hatch + compile black (#3965)
 
 ### Parser
 
@@ -43,15 +40,38 @@
 
 ### Integrations
 
-- The summary output for GitHub workflows is now suppressible using the `summary`
-  parameter. (#3958)
-
-- Fix the action failing when Black check doesn't pass (#3957)
+<!-- For example, Docker, GitHub Actions, pre-commit, editors -->
 
 ### Documentation
 
 <!-- Major changes to documentation and policies. Small docs changes
      don't need a changelog entry. -->
+
+## 23.10.1
+
+### Highlights
+
+- Maintanence release to get a fix out for GitHub Action edge case (#3957)
+
+### Preview style
+
+- Fix merging implicit multiline strings that have inline comments (#3956)
+- Allow empty first line after block open before a comment or compound statement (#3967)
+
+### Packaging
+
+- Change Dockerfile to hatch + compile black (#3965)
+
+### Integrations
+
+- The summary output for GitHub workflows is now suppressible using the `summary`
+  parameter. (#3958)
+- Fix the action failing when Black check doesn't pass (#3957)
+
+### Documentation
+
+- It is known Windows documentation CI is broken
+  https://github.com/psf/black/issues/3968
 
 ## 23.10.0
 
