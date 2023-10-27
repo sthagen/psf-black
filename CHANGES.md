@@ -19,6 +19,8 @@
 
 - Add support for single line format skip with other comments on the same line (#3959)
 
+- Fix a bug in the matching of absolute path names in `--include` (#3976)
+
 ### Packaging
 
 <!-- Changes to how Black is packaged, such as dependency requirements -->
@@ -52,7 +54,7 @@
 
 ### Highlights
 
-- Maintanence release to get a fix out for GitHub Action edge case (#3957)
+- Maintenance release to get a fix out for GitHub Action edge case (#3957)
 
 ### Preview style
 
