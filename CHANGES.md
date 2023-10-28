@@ -17,7 +17,7 @@
 
 ### Configuration
 
-- Add support for single line format skip with other comments on the same line (#3959)
+- Add support for single-line format skip with other comments on the same line (#3959)
 
 - Fix a bug in the matching of absolute path names in `--include` (#3976)
 
@@ -44,6 +44,9 @@
 ### Integrations
 
 <!-- For example, Docker, GitHub Actions, pre-commit, editors -->
+
+- Black's pre-commit integration will now run only on git hooks appropriate for a code
+  formatter (#3940)
 
 ### Documentation
 
