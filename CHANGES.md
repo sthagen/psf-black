@@ -6,12 +6,19 @@
 
 <!-- Include any especially major or disruptive changes here -->
 
+- Support formatting ranges of lines with the new `--line-ranges` command-line option
+  (#4020).
+
 ### Stable style
 
 - Fix crash on formatting bytes strings that look like docstrings (#4003)
 - Fix crash when whitespace followed a backslash before newline in a docstring (#4008)
+- Fix standalone comments inside complex blocks crashing Black (#4016)
 
 - Fix crash on formatting code like `await (a ** b)` (#3994)
+
+- No longer treat leading f-strings as docstrings. This matches Python's behaviour and
+  fixes a crash (#4019)
 
 ### Preview style
 
@@ -19,11 +26,15 @@
   indented less (#3964)
 - Multiline list and dict unpacking as the sole argument to a function is now also
   indented less (#3992)
+- Fix a bug where long `case` blocks were not split into multiple lines. Also enable
+  general trailing comma rules on `case` blocks (#4024)
+- Keep requiring two empty lines between module-level docstring and first function or
+  class definition. (#4028)
 
 ### Configuration
 
 - Add support for single-line format skip with other comments on the same line (#3959)
-
+- Consistently apply force exclusion logic before resolving symlinks (#4015)
 - Fix a bug in the matching of absolute path names in `--include` (#3976)
 
 ### Packaging
