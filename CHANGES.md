@@ -12,7 +12,7 @@
 
 ### Preview style
 
-<!-- Changes that affect Black's preview style -->
+- Standalone form feed characters at the module level are no longer removed (#4021)
 
 - Additional cases of immediately nested tuples, lists, and dictionaries are now
   indented less (#4012)
@@ -20,6 +20,9 @@
 ### Configuration
 
 <!-- Changes to how Black can be configured -->
+
+- `--line-ranges` now skips _Black_'s internal stability check in `--safe` mode. This
+  avoids a crash on rare inputs that have many unformatted same-content lines. (#4034)
 
 ### Packaging
 
