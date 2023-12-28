@@ -14,9 +14,15 @@
 
 <!-- Changes that affect Black's preview style -->
 
+- Format module docstrings the same as class and function docstrings (#4095)
+- Fix bug where spaces were not added around parenthesized walruses in subscripts,
+  unlike other binary operators (#4109)
+
 ### Configuration
 
 <!-- Changes to how Black can be configured -->
+
+- Fix cache mtime logic that resulted in false positive cache hits (#4128)
 
 ### Packaging
 
