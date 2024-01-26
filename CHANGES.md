@@ -6,6 +6,51 @@
 
 <!-- Include any especially major or disruptive changes here -->
 
+### Stable style
+
+<!-- Changes that affect Black's stable style -->
+
+### Preview style
+
+<!-- Changes that affect Black's preview style -->
+
+### Configuration
+
+<!-- Changes to how Black can be configured -->
+
+### Packaging
+
+<!-- Changes to how Black is packaged, such as dependency requirements -->
+
+### Parser
+
+<!-- Changes to the parser or to version autodetection -->
+
+### Performance
+
+<!-- Changes that improve Black's performance. -->
+
+### Output
+
+<!-- Changes to Black's terminal output and error messages -->
+
+### _Blackd_
+
+<!-- Changes to blackd -->
+
+### Integrations
+
+<!-- For example, Docker, GitHub Actions, pre-commit, editors -->
+
+### Documentation
+
+<!-- Major changes to documentation and policies. Small docs changes
+     don't need a changelog entry. -->
+
+## 24.1.0
+
+### Highlights
+
 This release introduces the new 2024 stable style (#4106), stabilizing the following
 changes:
 
@@ -34,9 +79,15 @@ changes:
 - Fix incorrect formatting of certain async statements (#3609)
 - Allow combining `# fmt: skip` with other comments (#3959)
 
-### Stable style
+There are already a few improvements in the `--preview` style, which are slated for the
+2025 stable style. Try them out and
+[share your feedback](https://github.com/psf/black/issues). In the past, the preview
+style has included some features that we were not able to stabilize. This year, we're
+adding a separate `--unstable` style for features with known problems. Now, the
+`--preview` style only includes features that we actually expect to make it into next
+year's stable style.
 
-<!-- Changes that affect Black's stable style -->
+### Stable style
 
 Several bug fixes were made in features that are moved to the stable style in this
 release:
@@ -51,8 +102,12 @@ release:
 
 ### Preview style
 
-<!-- Changes that affect Black's preview style -->
-
+- Add `--unstable` style, covering preview features that have known problems that would
+  block them from going into the stable style. Also add the `--enable-unstable-feature`
+  flag; for example, use
+  `--enable-unstable-feature hug_parens_with_braces_and_square_brackets` to apply this
+  preview feature throughout 2024, even if a later Black release downgrades the feature
+  to unstable (#4096)
 - Format module docstrings the same as class and function docstrings (#4095)
 - Fix crash when using a walrus in a dictionary (#4155)
 - Fix unnecessary parentheses when wrapping long dicts (#4135)
@@ -60,43 +115,17 @@ release:
 
 ### Configuration
 
-<!-- Changes to how Black can be configured -->
-
-- Fix symlink handling, properly catch and ignore symlinks that point outside of root
-  (#4161)
+- Print warning when configuration in `pyproject.toml` contains an invalid key (#4165)
+- Fix symlink handling, properly ignoring symlinks that point outside of root (#4161)
 - Fix cache mtime logic that resulted in false positive cache hits (#4128)
-
-### Packaging
-
-<!-- Changes to how Black is packaged, such as dependency requirements -->
-
-### Parser
-
-<!-- Changes to the parser or to version autodetection -->
-
-### Performance
-
-<!-- Changes that improve Black's performance. -->
-
-### Output
-
-<!-- Changes to Black's terminal output and error messages -->
-
-### _Blackd_
-
-<!-- Changes to blackd -->
+- Remove the long-deprecated `--experimental-string-processing` flag. This feature can
+  currently be enabled with `--preview --enable-unstable-feature string_processing`.
+  (#4096)
 
 ### Integrations
 
-<!-- For example, Docker, GitHub Actions, pre-commit, editors -->
-
 - Revert the change to run Black's pre-commit integration only on specific git hooks
   (#3940) for better compatibility with older versions of pre-commit (#4137)
-
-### Documentation
-
-<!-- Major changes to documentation and policies. Small docs changes
-     don't need a changelog entry. -->
 
 ## 23.12.1
 
