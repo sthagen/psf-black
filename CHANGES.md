@@ -17,7 +17,7 @@ changes:
 - Hex codes in Unicode escape sequences are now standardized to lowercase (#2916)
 - Allow empty first lines at the beginning of most blocks (#3967, #4061)
 - Add parentheses around long type annotations (#3899)
-- Standardize on a single newline after module docstrings (#3932)
+- Enforce newline after module docstrings (#3932, #4028)
 - Fix incorrect magic trailing comma handling in return types (#3916)
 - Remove blank lines before class docstrings (#3692)
 - Wrap multiple context managers in parentheses if combined in a single `with` statement
@@ -56,6 +56,7 @@ release:
 - Format module docstrings the same as class and function docstrings (#4095)
 - Fix crash when using a walrus in a dictionary (#4155)
 - Fix unnecessary parentheses when wrapping long dicts (#4135)
+- Stop normalizing spaces before `# fmt: skip` comments (#4146)
 
 ### Configuration
 
