@@ -14,14 +14,9 @@
 
 <!-- Changes that affect Black's preview style -->
 
-- Consistently add trailing comma on typed parameters (#4164)
-
 ### Configuration
 
 <!-- Changes to how Black can be configured -->
-
-- Shorten the length of the name of the cache file to fix crashes on file systems that
-  do not support long paths (#4176)
 
 ### Packaging
 
@@ -39,6 +34,9 @@
 
 <!-- Changes to Black's terminal output and error messages -->
 
+- Black will swallow any `SyntaxWarning`s or `DeprecationWarning`s produced by the `ast`
+  module when performing equivalence checks (#4189)
+
 ### _Blackd_
 
 <!-- Changes to blackd -->
@@ -51,6 +49,20 @@
 
 <!-- Major changes to documentation and policies. Small docs changes
      don't need a changelog entry. -->
+
+## 24.1.1
+
+Bugfix release to fix a bug that made Black unusable on certain file systems with strict
+limits on path length.
+
+### Preview style
+
+- Consistently add trailing comma on typed parameters (#4164)
+
+### Configuration
+
+- Shorten the length of the name of the cache file to fix crashes on file systems that
+  do not support long paths (#4176)
 
 ## 24.1.0
 
