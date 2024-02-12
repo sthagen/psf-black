@@ -14,6 +14,48 @@
 
 <!-- Changes that affect Black's preview style -->
 
+### Configuration
+
+<!-- Changes to how Black can be configured -->
+
+### Packaging
+
+<!-- Changes to how Black is packaged, such as dependency requirements -->
+
+### Parser
+
+<!-- Changes to the parser or to version autodetection -->
+
+### Performance
+
+<!-- Changes that improve Black's performance. -->
+
+### Output
+
+<!-- Changes to Black's terminal output and error messages -->
+
+### _Blackd_
+
+<!-- Changes to blackd -->
+
+### Integrations
+
+<!-- For example, Docker, GitHub Actions, pre-commit, editors -->
+
+### Documentation
+
+<!-- Major changes to documentation and policies. Small docs changes
+     don't need a changelog entry. -->
+
+## 24.2.0
+
+### Stable style
+
+- Fixed a bug where comments where mistakenly removed along with redundant parentheses
+  (#4218)
+
+### Preview style
+
 - Move the `hug_parens_with_braces_and_square_brackets` feature to the unstable style
   due to an outstanding crash and proposed formatting tweaks (#4198)
 - Fixed a bug where base expressions caused inconsistent formatting of \*\* in tenary
@@ -32,39 +74,14 @@
   simply add an empty `[tool.black]` to the previously discovered `pyproject.toml`
   (#4204)
 
-### Packaging
-
-<!-- Changes to how Black is packaged, such as dependency requirements -->
-
-### Parser
-
-<!-- Changes to the parser or to version autodetection -->
-
-### Performance
-
-<!-- Changes that improve Black's performance. -->
-
 ### Output
-
-<!-- Changes to Black's terminal output and error messages -->
 
 - Black will swallow any `SyntaxWarning`s or `DeprecationWarning`s produced by the `ast`
   module when performing equivalence checks (#4189)
 
-### _Blackd_
-
-<!-- Changes to blackd -->
-
 ### Integrations
 
-<!-- For example, Docker, GitHub Actions, pre-commit, editors -->
-
 - Add a JSONSchema and provide a validate-pyproject entry-point (#4181)
-
-### Documentation
-
-<!-- Major changes to documentation and policies. Small docs changes
-     don't need a changelog entry. -->
 
 ## 24.1.1
 
