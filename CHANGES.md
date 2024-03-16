@@ -10,12 +10,6 @@
 
 <!-- Changes that affect Black's stable style -->
 
-- Don't move comments along with delimiters, which could cause crashes (#4248)
-- Strengthen AST safety check to catch more unsafe changes to strings. Previous versions
-  of Black would incorrectly format the contents of certain unusual f-strings containing
-  nested strings with the same quote type. Now, Black will crash on such strings until
-  support for the new f-string syntax is implemented. (#4270)
-
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
@@ -50,9 +44,41 @@
 
 ### Documentation
 
-- Note what happens when `--check` is used with `--quiet` (#4236)
 <!-- Major changes to documentation and policies. Small docs changes
      don't need a changelog entry. -->
+
+## 24.3.0
+
+### Highlights
+
+This release is a milestone: it fixes Black's first CVE security vulnerability. If you
+run Black on untrusted input, or if you habitually put thousands of leading tab
+characters in your docstrings, you are strongly encouraged to upgrade immediately to fix
+[CVE-2024-21503](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-21503).
+
+This release also fixes a bug in Black's AST safety check that allowed Black to make
+incorrect changes to certain f-strings that are valid in Python 3.12 and higher.
+
+### Stable style
+
+- Don't move comments along with delimiters, which could cause crashes (#4248)
+- Strengthen AST safety check to catch more unsafe changes to strings. Previous versions
+  of Black would incorrectly format the contents of certain unusual f-strings containing
+  nested strings with the same quote type. Now, Black will crash on such strings until
+  support for the new f-string syntax is implemented. (#4270)
+- Fix a bug where line-ranges exceeding the last code line would not work as expected
+  (#4273)
+
+### Performance
+
+- Fix catastrophic performance on docstrings that contain large numbers of leading tab
+  characters. This fixes
+  [CVE-2024-21503](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-21503).
+  (#4278)
+
+### Documentation
+
+- Note what happens when `--check` is used with `--quiet` (#4236)
 
 ## 24.2.0
 
