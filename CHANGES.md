@@ -10,12 +10,15 @@
 
 <!-- Changes that affect Black's stable style -->
 
+- Fix unwanted crashes caused by AST equivalency check (#4290)
+
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
 
 - `if` guards in `case` blocks are now wrapped in parentheses when the line is too long.
   (#4269)
+- Stop moving multiline strings to a new line unless inside brackets (#4289)
 
 ### Configuration
 
