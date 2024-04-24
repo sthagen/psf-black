@@ -37,6 +37,7 @@ from black.nodes import (
     WHITESPACE,
     Visitor,
     ensure_visible,
+    fstring_to_string,
     get_annotation_type,
     is_arith_like,
     is_async_stmt_or_funcdef,
@@ -308,8 +309,11 @@ class LineGenerator(Visitor[Line]):
                 yield from self.line(-1)
 
         else:
-            if not node.parent or not is_stub_suite(node.parent):
-                yield from self.line()
+            if node.parent and is_stub_suite(node.parent):
+                node.prefix = ""
+                yield from self.visit_default(node)
+                return
+            yield from self.line()
             yield from self.visit_default(node)
 
     def visit_async_stmt(self, node: Node) -> Iterator[Line]:
@@ -504,7 +508,7 @@ class LineGenerator(Visitor[Line]):
 
     def visit_fstring(self, node: Node) -> Iterator[Line]:
         # currently we don't want to format and split f-strings at all.
-        string_leaf = _fstring_to_string(node)
+        string_leaf = fstring_to_string(node)
         node.replace(string_leaf)
         yield from self.visit_STRING(string_leaf)
 
@@ -572,12 +576,6 @@ class LineGenerator(Visitor[Line]):
         self.visit_case_block = self.visit_match_case
         if Preview.remove_redundant_guard_parens in self.mode:
             self.visit_guard = partial(v, keywords=Ø, parens={"if"})
-
-
-def _fstring_to_string(node: Node) -> Leaf:
-    """Converts an fstring node back to a string node."""
-    string_without_prefix = str(node)[len(node.prefix) :]
-    return Leaf(token.STRING, string_without_prefix, prefix=node.prefix)
 
 
 def _hugging_power_ops_line_to_string(
@@ -1421,7 +1419,7 @@ def normalize_invisible_parens(  # noqa: C901
                 # of case will be not parsed as a Python keyword.
                 break
 
-            elif not (isinstance(child, Leaf) and is_multiline_string(child)):
+            elif not is_multiline_string(child):
                 wrap_in_parentheses(node, child, visible=False)
 
         comma_check = child.type == token.COMMA

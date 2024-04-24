@@ -12,6 +12,8 @@
 
 <!-- Changes that affect Black's stable style -->
 
+- Fix crash involving indented dummy functions containing newlines (#4318)
+
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
@@ -28,6 +30,9 @@
 
 <!-- Changes to the parser or to version autodetection -->
 
+- Add support for type parameter defaults, a new syntactic feature added to Python 3.13
+  by PEP 696 (#4327)
+
 ### Performance
 
 <!-- Changes that improve Black's performance. -->
@@ -43,6 +48,8 @@
 ### Integrations
 
 <!-- For example, Docker, GitHub Actions, pre-commit, editors -->
+
+- Github Action now works even when `git archive` is skipped (#4313)
 
 ### Documentation
 
