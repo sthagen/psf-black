@@ -30,8 +30,6 @@
 
 <!-- Changes that improve Black's performance. -->
 
-- Fix bad performance on certain complex string literals (#4331)
-
 ### Output
 
 <!-- Changes to Black's terminal output and error messages -->
@@ -48,6 +46,19 @@
 
 <!-- Major changes to documentation and policies. Small docs changes
      don't need a changelog entry. -->
+
+## 24.4.2
+
+This is a bugfix release to fix two regressions in the new f-string parser introduced in
+24.4.1.
+
+### Parser
+
+- Fix regression where certain complex f-strings failed to parse (#4332)
+
+### Performance
+
+- Fix bad performance on certain complex string literals (#4331)
 
 ## 24.4.1
 
