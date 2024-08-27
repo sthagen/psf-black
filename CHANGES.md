@@ -6,6 +6,8 @@
 
 <!-- Include any especially major or disruptive changes here -->
 
+- Black now officially supports Python 3.13 (#4436)
+
 ### Stable style
 
 <!-- Changes that affect Black's stable style -->
@@ -13,6 +15,9 @@
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
+
+- Fix type annotation spacing between * and more complex type variable tuple (i.e. `def
+  fn(*args: *tuple[*Ts, T]) -> None: pass`) (#4440)
 
 ### Configuration
 
