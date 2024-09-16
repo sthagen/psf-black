@@ -13,10 +13,14 @@
 - Black will issue an error when used with Python 3.12.5, due to an upstream memory
   safety issue in Python 3.12.5 that can cause Black's AST safety checks to fail. Please
   use Python 3.12.6 or Python 3.12.4 instead. (#4447)
+- Black no longer supports running with Python 3.8 (#4452)
 
 ### Stable style
 
 <!-- Changes that affect Black's stable style -->
+
+- Fix crashes involving comments in parenthesised return types or `X | Y` style unions.
+  (#4453)
 
 ### Preview style
 
@@ -34,6 +38,7 @@
 <!-- Changes to how Black is packaged, such as dependency requirements -->
 
 - Upgrade version of mypyc used to 1.11.2 (#4450)
+- `blackd` now requires a newer version of aiohttp. (#4451)
 
 ### Parser
 

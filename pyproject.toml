@@ -7,7 +7,7 @@
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py39']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -34,7 +34,7 @@ build-backend = "hatchling.build"
 name = "black"
 description = "The uncompromising code formatter."
 license = { text = "MIT" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
   { name = "Łukasz Langa", email = "lukasz@langa.pl" },
 ]
@@ -55,7 +55,6 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -78,10 +77,7 @@ dynamic = ["readme", "version"]
 [project.optional-dependencies]
 colorama = ["colorama>=0.4.3"]
 uvloop = ["uvloop>=0.15.2"]
-d = [
-  "aiohttp>=3.7.4; sys_platform != 'win32' or implementation_name != 'pypy'",
-  "aiohttp>=3.7.4, !=3.9.0; sys_platform == 'win32' and implementation_name == 'pypy'",
-]
+d = ["aiohttp>=3.10"]
 jupyter = [
   "ipython>=7.8.0",
   "tokenize-rt>=3.2.0",
@@ -155,7 +151,7 @@ options = { debug_level = "0" }
 build-verbosity = 1
 
 # So these are the environments we target:
-# - Python: CPython 3.8+ only
+# - Python: CPython 3.9+ only
 # - Architecture (64-bit only): amd64 / x86_64, universal2, and arm64
 # - OS: Linux (no musl), Windows, and macOS
 build = "cp3*"
@@ -219,23 +215,7 @@ markers = [
   "incompatible_with_mypyc: run when testing mypyc compiled black"
 ]
 xfail_strict = true
-filterwarnings = [
-    "error",
-    # this is mitigated by a try/catch in https://github.com/psf/black/pull/2974/
-    # this ignore can be removed when support for aiohttp 3.7 is dropped.
-    '''ignore:Decorator `@unittest_run_loop` is no longer needed in aiohttp 3\.8\+:DeprecationWarning''',
-    # this is mitigated by a try/catch in https://github.com/psf/black/pull/3198/
-    # this ignore can be removed when support for aiohttp 3.x is dropped.
-    '''ignore:Middleware decorator is deprecated since 4\.0 and its behaviour is default, you can simply remove this decorator:DeprecationWarning''',
-    # aiohttp is using deprecated cgi modules - Safe to remove when fixed:
-    # https://github.com/aio-libs/aiohttp/issues/6905
-    '''ignore:'cgi' is deprecated and slated for removal in Python 3.13:DeprecationWarning''',
-    # Work around https://github.com/pytest-dev/pytest/issues/10977 for Python 3.12
-    '''ignore:(Attribute s|Attribute n|ast.Str|ast.Bytes|ast.NameConstant|ast.Num) is deprecated and will be removed in Python 3.14:DeprecationWarning''',
-    # Will be fixed with aiohttp 3.9.0
-    # https://github.com/aio-libs/aiohttp/pull/7302
-    "ignore:datetime.*utcfromtimestamp\\(\\) is deprecated and scheduled for removal:DeprecationWarning",
-]
+filterwarnings = ["error"]
 [tool.coverage.report]
 omit = [
   "src/blib2to3/*",
@@ -251,7 +231,7 @@ branch = true
 # Specify the target platform details in config, so your developers are
 # free to run mypy on Windows, Linux, or macOS and get consistent
 # results.
-python_version = "3.8"
+python_version = "3.9"
 mypy_path = "src"
 strict = true
 # Unreachable blocks have been an issue when compiling mypyc, let's try to avoid 'em in the first place.
