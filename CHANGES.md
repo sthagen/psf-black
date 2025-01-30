@@ -42,6 +42,8 @@
 
 <!-- For example, Docker, GitHub Actions, pre-commit, editors -->
 
+- Fix the version check in the vim file to reject Python 3.8 (#4567)
+
 ### Documentation
 
 <!-- Major changes to documentation and policies. Small docs changes
