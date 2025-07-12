@@ -21,6 +21,7 @@
 - Fix crash on `await ...` (where `...` is a literal `Ellipsis`) (#4676)
 - Remove support for pre-python 3.7 `await/async` as soft keywords/variable names
   (#4676)
+- Fix crash on parenthesized expression inside a type parameter bound (#4684)
 
 ### Preview style
 
@@ -28,6 +29,7 @@
 
 - Fix a bug where one-liner functions/conditionals marked with `# fmt: skip` would still
   be formatted (#4552)
+- Improve `multiline_string_handling` with ternaries and dictionaries (#4657)
 - Fix a bug where `string_processing` would not split f-strings directly after
   expressions (#4680)
 
@@ -1642,7 +1644,6 @@ and the first release covered by our new
 ## 18.9b0
 
 - numeric literals are now formatted by _Black_ (#452, #461, #464, #469):
-
   - numeric literals are normalized to include `_` separators on Python 3.6+ code
 
   - added `--skip-numeric-underscore-normalization` to disable the above behavior and
@@ -1692,7 +1693,6 @@ and the first release covered by our new
 - typing stub files (`.pyi`) now have blank lines added after constants (#340)
 
 - `# fmt: off` and `# fmt: on` are now much more dependable:
-
   - they now work also within bracket pairs (#329)
 
   - they now correctly work across function/class boundaries (#335)
