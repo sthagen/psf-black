@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+<!-- PR authors:
+     Please include the PR number in the changelog entry, not the issue number -->
+
 ### Highlights
 
 <!-- Include any especially major or disruptive changes here -->
@@ -14,9 +17,11 @@
 
 <!-- Changes that affect Black's preview style -->
 
+- Move `multiline_string_handling` from `--unstable` to `--preview` (#4760)
 - Fix bug where module docstrings would be treated as normal strings if preceeded by
   comments (#4764)
 - Fix bug where python 3.12 generics syntax split line happens weirdly (#4777)
+- Standardize type comments to form `# type: <value>` (#4645)
 
 ### Configuration
 
@@ -40,9 +45,15 @@
 
 <!-- Changes to Black's terminal output and error messages -->
 
+- Write unchanged content to stdout when excluding formating from stdin using pipes
+  (#4610)
+
 ### _Blackd_
 
 <!-- Changes to blackd -->
+
+- Implemented BlackDClient. This simple python client allows to easily send formatting
+  requests to blackd (#4774)
 
 ### Integrations
 
