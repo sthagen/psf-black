@@ -24,7 +24,7 @@ repos:
           - commonmark>=0.9.1
 
   - repo: https://github.com/pycqa/isort
-    rev: 8.0.0
+    rev: 8.0.1
     hooks:
       - id: isort
 
@@ -52,6 +52,8 @@ repos:
           - platformdirs>=2
           - pytokens~=0.4.0
           - tomli>=1.1.0
+          - uvloop>=0.15.2; sys_platform != 'win32'
+          - winloop>=0.5.0; sys_platform == 'win32'
 
           # blackd
           - aiohttp>=3.10
