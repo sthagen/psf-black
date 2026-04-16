@@ -26,6 +26,8 @@
 - Improve heuristics around whether blank lines should appear before, within and after
   groups of same-name decorated functions (such as `@overload` groups) in `.pyi` stub
   files (#5021)
+- Fix blank lines being removed between a function and a decorated class in `.pyi` stub
+  files (#5092)
 
 ### Configuration
 
@@ -45,7 +47,8 @@
 
 ### Output
 
-<!-- Changes to Black's terminal output and error messages -->
+- Improve parse error readability by showing multi-line output with an error pointer.
+  (#5068)
 
 ### _Blackd_
 
@@ -65,6 +68,8 @@
 
 - Use "Version X.Y.Z" headings in changelog for stable permalink anchors on ReadTheDocs
   (#5063)
+- Note in the editor integrations that the SublimeText `sublack` plugin is archived and
+  unmaintained (#5082)
 
 ## Version 26.3.1
 
