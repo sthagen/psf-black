@@ -50,6 +50,24 @@
 <!-- Major changes to documentation and policies. Small docs changes
      don't need a changelog entry. -->
 
+## Version 26.5.1
+
+### Stable style
+
+- Fix unstable formatting of annotated assignments whose subscript annotation contains
+  an inline comment (e.g. `x: list[  # pyright: ignore[...]`) (#5130)
+- Preserve inline comments (including `# type: ignore`) immediately before a
+  `# fmt: skip` line, avoiding AST equivalence failures (#5139)
+
+### Packaging
+
+- Correct the version in the published executables (#5137)
+
+### Documentation
+
+- Add Neovim integration guide covering conform.nvim, ALE, and simple command approaches
+  (#5124)
+
 ## Version 26.5.0
 
 ### Highlights
