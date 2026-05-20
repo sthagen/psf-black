@@ -5,6 +5,8 @@
 <!-- PR authors:
      Please include the PR number in the changelog entry, not the issue number -->
 
+- Add support for NO_COLOR environment variable to disable ANSI output (#5129)
+
 ### Highlights
 
 <!-- Include any especially major or disruptive changes here -->
@@ -16,6 +18,12 @@
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
+
+- Stop splitting between a variable and its comparator (`not in`, `==`, `is`, ...) when
+  the right-hand side is a bracketed expression. Black now lets the bracket explode
+  instead. This fixes the awkward break that was showing up in comprehension `if`
+  clauses (#4514) as well as the same shape inside `if`, `elif`, `assert`, and
+  parenthesized expressions (#5135)
 
 ### Configuration
 
