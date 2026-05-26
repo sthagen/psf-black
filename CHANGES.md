@@ -15,6 +15,11 @@
 
 <!-- Changes that affect Black's stable style -->
 
+- Fix a crash when splitting `case case if ...` match patterns at very small line
+  lengths (#5147)
+- Fix multiline docstring indentation when leading tabs are used inside indented
+  docstrings (#5148)
+
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
