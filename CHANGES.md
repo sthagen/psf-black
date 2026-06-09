@@ -6,6 +6,8 @@
      Please include the PR number in the changelog entry, not the issue number -->
 
 - Add support for NO_COLOR environment variable to disable ANSI output (#5129)
+- No spurious target version warning when runtime version is included in a
+  --target-version flag (#5167)
 
 ### Highlights
 
@@ -21,6 +23,10 @@
   lengths (#5147)
 - Fix multiline docstring indentation when leading tabs are used inside indented
   docstrings (#5148)
+- Respect `# fmt: skip` on a line that opens a bracket (e.g.
+  `from x import (  # fmt: skip`) when a standalone comment is among the bracket's
+  contents: the whole statement is now preserved instead of being reformatted (and
+  previously crashing) (#5161)
 
 ### Preview style
 
@@ -31,6 +37,8 @@
   instead. This fixes the awkward break that was showing up in comprehension `if`
   clauses (#4514) as well as the same shape inside `if`, `elif`, `assert`, and
   parenthesized expressions (#5135)
+- In `.pyi` stub files, enforce a blank line after a function or method that has a
+  docstring-only body when another comment or statement follows it (#5158)
 
 ### Configuration
 
@@ -40,6 +48,7 @@
   different working directories in the same process. The CWD fallback (used when no
   `srcs` are given) is now resolved before the `lru_cache` key is computed, so each
   directory gets the correct `pyproject.toml` (#5152)
+- Add validation for --line-ranges values (#5107)
 
 ### Packaging
 
@@ -56,6 +65,11 @@
 - Improve performance on strings containing many consecutive backslashes (#5163)
 - Improve performance when merging implicitly concatenated f-strings whose expressions
   contain long string literals (#5165)
+- Improve performance on files with many `# fmt: skip`/`# fmt: off` comments by no
+  longer re-walking the whole tree from the root for every directive (#5169)
+- Improve performance on deeply nested parenthesised expressions by no longer
+  re-scanning the whole atom for every nesting level in `max_delimiter_priority_in_atom`
+  (#5171)
 
 ### Output
 
