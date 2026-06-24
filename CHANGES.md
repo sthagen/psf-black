@@ -19,6 +19,8 @@
 
 - Fix crash when a standalone comment sits between tokens of a comprehension or lambda
   (#5144)
+- Fix crash when a comment-only `# fmt: off`/`# fmt: on` block is followed by a `with`
+  statement after another standalone comment (#5189)
 - Fix a crash when splitting `case case if ...` match patterns at very small line
   lengths (#5147)
 - Fix multiline docstring indentation when leading tabs are used inside indented
@@ -85,6 +87,12 @@
   rather than rebuilding them from scratch after every tree mutation (#5178)
 - Improve performance on long calls and collections by no longer scanning the whole line
   to locate each bracket's opening pair in `is_one_sequence_between` (#5177)
+- Improve performance when splitting long string literals (preview string processing) by
+  no longer re-scanning the whole string for `\N{...}` named escapes on every substring
+  (#5183)
+- Improve performance on large dict literals and long semicolon-separated statements by
+  wrapping a node's children in invisible parentheses in place instead of removing and
+  re-inserting each one, which scanned the whole child list every time (#5184)
 
 ### Output
 
