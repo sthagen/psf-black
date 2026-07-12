@@ -58,6 +58,11 @@
   `srcs` are given) is now resolved before the `lru_cache` key is computed, so each
   directory gets the correct `pyproject.toml` (#5152)
 - Add validation for --line-ranges values (#5107)
+- Ignore empty cache files like other malformed cache files instead of raising an
+  `EOFError` (#5192)
+- Reject non-string `include` and `force-exclude` values in `pyproject.toml` (#5193)
+- Validate `BLACK_NUM_WORKERS` values and report invalid values as usage errors instead
+  of crashing (#5211)
 
 ### Packaging
 
@@ -106,6 +111,15 @@
 - Improve performance on large dict literals and long semicolon-separated statements by
   wrapping a node's children in invisible parentheses in place instead of removing and
   re-inserting each one, which scanned the whole child list every time (#5184)
+- Improve performance when copying a long line's leaves into a new line (for example
+  `--preview` string processing of `"%s ..." % (a, b, c, ...)` or a string with a
+  backslash continuation) by resuming the child lookup in `append_leaves` instead of
+  rescanning each leaf's parent from the start (#5199)
+- Improve performance of `--line-ranges` on files with many sibling blocks (a long
+  `if`/`elif` chain, a `match` with many cases, or many top-level definitions) by
+  splicing the unchanged blocks into each parent's child list in a single pass rather
+  than removing and re-inserting each one, which rescanned and shifted the whole child
+  list on every conversion (#5213)
 
 ### Output
 
