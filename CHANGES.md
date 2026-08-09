@@ -17,12 +17,27 @@
 
 <!-- Changes that affect Black's stable style -->
 
+- Stop treating a t-string in docstring position as a docstring (for example
+  `t"  spam  "` as the first statement of a module, class or function). t-strings
+  evaluate to `Template`, never `str`, so stripping and reindenting one changed the
+  value of the template and tripped Black's AST safety check (#5287)
+- Fix unparseable output for a t-string whose replacement field contains a quote (for
+  example `t'\'{a["b"]}\''`). The guards that keep quote normalisation away from the
+  inside of an f-string replacement field were never reached for t-strings, so the
+  nested quotes were escaped and Black failed on its own output (#5265)
+- Fix unparseable output for a triple-quoted string whose body ends in an already
+  escaped double quote (for example `'''\'''\"'''`). Switching to `"""` escaped the
+  backslash instead of the quote, leaving the closing quotes bare, so Black failed on
+  its own output (#5262)
 - Fix dropping the required trailing comma from a single-element tuple used as a lambda
   parameter default under `--skip-magic-trailing-comma` when a standalone comment forces
   the tuple across multiple lines; removing the comma turned the tuple into a bare
   expression and failed Black's AST safety check (#5246)
 - Fix unstable formatting when an inline comment sits on optional parentheses (for
   example a parenthesized assert message or assignment RHS) (#5241)
+- Fix `--skip-magic-trailing-comma` dropping the trailing comma of a one-element
+  subscript (`a[x,]`) when the line is long enough to be split and contains a power
+  operator (#5272)
 - Fix crash when a standalone comment sits between tokens of a comprehension or lambda
   (#5144)
 - Respect the magic trailing comma in a PEP 695 type parameter list containing a
@@ -63,6 +78,9 @@
   as a comprehension's iterable down to a single pair (e.g. `[x for x in ((lambda: 0))]`
   becomes `[x for x in (lambda: 0)]`). Previously the inner pair was stripped too,
   leaving the bare expression and crashing Black (#5200)
+- Don't hug brackets when doing so would join two `type: ignore` comments onto one line.
+  The AST records `type: ignore` per line, so merging them dropped a `TypeIgnore` entry
+  and Black failed its own equivalence check (#5271)
 
 ### Configuration
 
@@ -154,10 +172,16 @@
   chain) by walking the `blib2to3` node tree iteratively in `pre_order`, `post_order`
   and `leaves` instead of recursing with `yield from`, whose per-node generator
   delegation made a full traversal quadratic in nesting depth (#5235)
+- Improve performance of `--preview` string merging on lines such as
+  `"%s ..." % (a, b, c, ...)` by copying the leaves that surround the merged string in
+  one `append_leaves` call instead of one call per leaf, which rescanned the shared
+  parent's child list from the start every time (#5220)
 
 ### Output
 
 <!-- Changes to Black's terminal output and error messages -->
+
+- Report parser failures using editor-friendly `path:line:column` locations (#5237)
 
 ### _Blackd_
 
@@ -171,6 +195,9 @@
 
 <!-- Major changes to documentation and policies. Small docs changes
      don't need a changelog entry. -->
+
+- Document `vim-python-pep8-indent`, which provides an `indentexpr` for Black-style
+  insert-mode indentation (#5288)
 
 ## Version 26.5.1
 
