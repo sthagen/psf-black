@@ -8,6 +8,8 @@
 - Add support for NO_COLOR environment variable to disable ANSI output (#5129)
 - No spurious target version warning when runtime version is included in a
   --target-version flag (#5167)
+- `--line-ranges` no longer inserts an empty line after a docstring when the range
+  covers only the docstring itself (#5312)
 
 ### Highlights
 
@@ -17,6 +19,12 @@
 
 <!-- Changes that affect Black's stable style -->
 
+- Preserve blank lines that come immediately before a `# fmt: on` comment (#5300)
+- Keep the parentheses around the target of an annotated assignment (for example
+  `(x): int = 5`). They make the target non-simple, so CPython leaves the name out of
+  `__annotations__`; removing them changed that and tripped Black's AST safety check.
+  Nesting beyond the first pair is redundant and is still removed, so `((x)): int = 5`
+  becomes `(x): int = 5` (#5321)
 - Stop treating a t-string in docstring position as a docstring (for example
   `t"  spam  "` as the first statement of a module, class or function). t-strings
   evaluate to `Template`, never `str`, so stripping and reindenting one changed the
@@ -53,11 +61,14 @@
   `from x import (  # fmt: skip`) when a standalone comment is among the bracket's
   contents: the whole statement is now preserved instead of being reformatted (and
   previously crashing) (#5161)
+- Fix crash when `# fmt: skip` is used on one-line `async def`, `async with`, and
+  `async for` statements containing a semicolon (#5311)
 
 ### Preview style
 
 <!-- Changes that affect Black's preview style -->
 
+- Remove redundant parentheses around generator expressions (#5304)
 - Preserve two blank lines before a top-level class starting inside a `# fmt: off` block
   after an import (#5238)
 - Fix unnecessary parentheses around short RHS expressions in indexed assignments like
@@ -176,6 +187,8 @@
   `"%s ..." % (a, b, c, ...)` by copying the leaves that surround the merged string in
   one `append_leaves` call instead of one call per leaf, which rescanned the shared
   parent's child list from the start every time (#5220)
+- Improve performance on long `if`/`elif` chains and other compound statements with many
+  clauses (#5322)
 
 ### Output
 

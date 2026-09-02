@@ -377,6 +377,23 @@ class LineGenerator(Visitor[Line]):
             ):
                 wrap_in_parentheses(node, leaf)
 
+        if Preview.remove_redundant_generator_parentheses in self.mode:
+            for child in node.children:
+                if (
+                    child.type == syms.trailer
+                    and len(child.children) == 3
+                    and is_lpar_token(child.children[0])
+                    and is_generator(child.children[1])
+                    and is_rpar_token(child.children[2])
+                ):
+                    maybe_make_parens_invisible_in_atom(
+                        child.children[1],
+                        parent=child,
+                        mode=self.mode,
+                        features=self.features,
+                        remove_generator_parens=True,
+                    )
+
         remove_await_parens(node, mode=self.mode, features=self.features)
 
         yield from self.visit_default(node)
@@ -568,6 +585,17 @@ class LineGenerator(Visitor[Line]):
 
     def visit_atom(self, node: Node) -> Iterator[Line]:
         """Visit any atom"""
+        if (
+            Preview.remove_redundant_generator_parentheses in self.mode
+            and _has_redundant_generator_parentheses(node)
+        ):
+            maybe_make_parens_invisible_in_atom(
+                node,
+                parent=node.parent or node,
+                mode=self.mode,
+                features=self.features,
+            )
+
         if len(node.children) == 3:
             first = node.children[0]
             last = node.children[-1]
@@ -1614,6 +1642,20 @@ def _is_parenthesized_lambda_or_ternary(node: LN) -> bool:
     return False
 
 
+def _has_redundant_generator_parentheses(node: LN) -> bool:
+    """Whether `node` adds parentheses around a parenthesized generator."""
+    if (
+        node.type != syms.atom
+        or len(node.children) != 3
+        or not is_lpar_token(node.children[0])
+        or not is_rpar_token(node.children[-1])
+    ):
+        return False
+
+    middle = node.children[1]
+    return is_generator(middle) or _has_redundant_generator_parentheses(middle)
+
+
 def normalize_invisible_parens(
     node: Node, parens_after: set[str], *, mode: Mode, features: Collection[Feature]
 ) -> None:
@@ -1674,7 +1716,18 @@ def normalize_invisible_parens(
             and not _atom_has_magic_trailing_comma(child, mode)
             and not _is_atom_multiline(child)
         ):
-            if maybe_make_parens_invisible_in_atom(
+            if _is_parenthesized_annotation_target(node, child):
+                # One pair is what makes the target non-simple, so any nesting
+                # inside it is redundant and goes.
+                inner = child.children[1]
+                if isinstance(inner, Node) and inner.type == syms.atom:
+                    maybe_make_parens_invisible_in_atom(
+                        inner,
+                        parent=child,
+                        mode=mode,
+                        features=features,
+                    )
+            elif maybe_make_parens_invisible_in_atom(
                 child,
                 parent=node,
                 mode=mode,
@@ -1682,7 +1735,7 @@ def normalize_invisible_parens(
                 remove_brackets_around_comma=True,
                 allow_star_expr=True,
             ):
-                wrap_in_parentheses(node, child, visible=False)
+                wrap_in_parentheses(node, child, visible=False, index=index)
 
         if check_lpar:
             if (
@@ -1699,7 +1752,7 @@ def normalize_invisible_parens(
                     features=features,
                     remove_brackets_around_comma=True,
                 ):
-                    wrap_in_parentheses(node, child, visible=False)
+                    wrap_in_parentheses(node, child, visible=False, index=index)
             elif isinstance(child, Node) and node.type == syms.with_stmt:
                 remove_with_parens(child, node, mode=mode, features=features)
             elif (
@@ -1713,7 +1766,7 @@ def normalize_invisible_parens(
                     and child.children[0].type != syms.atom
                     and is_one_tuple(child.children[0])
                 ):
-                    wrap_in_parentheses(node, child, visible=True)
+                    wrap_in_parentheses(node, child, visible=True, index=index)
             elif child.type == syms.atom:
                 if "in" in parens_after and _is_parenthesized_lambda_or_ternary(child):
                     # A lambda or conditional expression used as a comprehension's
@@ -1732,9 +1785,9 @@ def normalize_invisible_parens(
                 elif maybe_make_parens_invisible_in_atom(
                     child, parent=node, mode=mode, features=features
                 ):
-                    wrap_in_parentheses(node, child, visible=False)
+                    wrap_in_parentheses(node, child, visible=False, index=index)
             elif is_one_tuple(child):
-                wrap_in_parentheses(node, child, visible=True)
+                wrap_in_parentheses(node, child, visible=True, index=index)
             elif node.type == syms.import_from:
                 _normalize_import_from(node, child, index)
                 break
@@ -1773,9 +1826,9 @@ def normalize_invisible_parens(
                         mock_line.append(leaf)
                     # If it's a guard AND it's short, we DON'T wrap
                     if not is_line_short_enough(mock_line, mode=mode):
-                        wrap_in_parentheses(node, child, visible=False)
+                        wrap_in_parentheses(node, child, visible=False, index=index)
                 else:
-                    wrap_in_parentheses(node, child, visible=False)
+                    wrap_in_parentheses(node, child, visible=False, index=index)
 
         comma_check = child.type == token.COMMA
 
@@ -1937,6 +1990,34 @@ def _atom_has_magic_trailing_comma(node: LN, mode: Mode) -> bool:
     return is_one_tuple(node)
 
 
+def _is_parenthesized_annotation_target(node: Node, child: Node) -> bool:
+    """Is `child` a parenthesized plain name that `node` annotates?
+
+    `(x): int = 5` and `x: int = 5` do not do the same thing: only the second one
+    records `x` in `__annotations__`, because the parentheses make the target
+    non-simple (`AnnAssign.simple` is 0). Dropping them changes what the module
+    does at runtime, so they have to stay. Attribute and subscript targets are
+    non-simple either way, so those are left alone here.
+    """
+    if len(node.children) < 2:
+        return False
+
+    annassign = node.children[1]
+    if not isinstance(annassign, Node) or annassign.type != syms.annassign:
+        return False
+
+    # `((x)): int = 5` is non-simple too, so look through any nesting.
+    target: LN = child
+    while (
+        isinstance(target, Node)
+        and target.type == syms.atom
+        and len(target.children) == 3
+    ):
+        target = target.children[1]
+
+    return isinstance(target, Leaf) and target.type == token.NAME
+
+
 def _is_atom_multiline(node: LN) -> bool:
     """Check if an atom node is multiline (indicating intentional formatting)."""
     if not isinstance(node, Node) or len(node.children) < 3:
@@ -1959,6 +2040,7 @@ def maybe_make_parens_invisible_in_atom(
     features: Collection[Feature],
     remove_brackets_around_comma: bool = False,
     allow_star_expr: bool = False,
+    remove_generator_parens: bool = False,
 ) -> bool:
     """If it's safe, make the parens in the atom `node` invisible, recursively.
     Additionally, remove repeated, adjacent invisible parens from the atom `node`
@@ -1966,6 +2048,7 @@ def maybe_make_parens_invisible_in_atom(
 
     Returns whether the node should itself be wrapped in invisible parentheses.
     """
+    can_remove_generator_parens = remove_generator_parens and is_generator(node)
     if (
         node.type not in (syms.atom, syms.expr)
         or is_empty_tuple(node)
@@ -1983,6 +2066,7 @@ def maybe_make_parens_invisible_in_atom(
             # and option to skip this check for `for` and `with` statements.
             not remove_brackets_around_comma
             and max_delimiter_priority_in_atom(node) >= COMMA_PRIORITY
+            and not can_remove_generator_parens
             # Remove parentheses around multiple exception types in except and
             # except* without as. See PEP 758 for details.
             and not (
@@ -2003,7 +2087,7 @@ def maybe_make_parens_invisible_in_atom(
         )
         or is_tuple_containing_walrus(node)
         or (not allow_star_expr and is_tuple_containing_star(node))
-        or is_generator(node)
+        or (not can_remove_generator_parens and is_generator(node))
     ):
         return False
 
